@@ -7,6 +7,7 @@ import { lintDotenv, type DotenvIssue } from "./dotenv.js";
 import { GitHubClient, type Inventory } from "./github.js";
 import { addedLines, scanText, type EnvRef } from "./scan.js";
 import { SOURCES } from "./sources/index.js";
+import { findUnused, repoWords } from "./unused.js";
 import type { SourceContext } from "./sources/types.js";
 
 export interface RunOptions {
@@ -21,6 +22,8 @@ export interface RunOptions {
   configRef?: string;
   /** Only scan; do not contact GitHub or any source. */
   offline?: boolean;
+  /** Also report names configured somewhere but not found anywhere in the repository. */
+  unused?: boolean;
   env?: Record<string, string | undefined>;
   fetchImpl?: typeof fetch;
   warn?: (message: string) => void;
@@ -33,6 +36,8 @@ export interface RunResult {
   dotenvIssues: DotenvIssue[];
   /** Labels of the sources checked per environment (environments using GitHub are omitted). */
   sourcesChecked: Record<string, string[]>;
+  /** Possibly unused names per environment ("(repository)" = repo-level GitHub values), when requested. */
+  unused?: Record<string, string[]>;
 }
 
 // quotepath=off: otherwise git prints non-ASCII paths as quoted octal escapes and those files are skipped.
@@ -127,7 +132,14 @@ export async function run(opts: RunOptions): Promise<RunResult> {
     exec: (cmd, args, o) => spawnSync(cmd, args ?? [], { ...o, encoding: "utf8" }) as ReturnType<SourceContext["exec"]>,
     warn: opts.warn ?? ((m) => console.error(`envsure: warning: ${m}`)),
   });
-  return { config, refs, findings: check(refs, inv, config, runtime), dotenvIssues, sourcesChecked };
+  const result: RunResult = { config, refs, findings: check(refs, inv, config, runtime), dotenvIssues, sourcesChecked };
+  if (opts.unused) {
+    // Usage is judged against the whole repository, not just the PR diff.
+    const excluded = (f: string) => config.excludePaths.some((p) => f.startsWith(p));
+    const all = git(opts.cwd, ["ls-files"]).split("\n").filter((f) => f && !excluded(f));
+    result.unused = findUnused(config, inv, runtime, repoWords(opts.cwd, all));
+  }
+  return result;
 }
 
 /** Union of names from each environment's sources, all fetched in parallel. Any failing source fails the run. */

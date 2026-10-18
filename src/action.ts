@@ -1,5 +1,5 @@
 import { appendFileSync, readFileSync } from "node:fs";
-import { COMMENT_MARKER, renderMarkdown, scopeLabel } from "./report.js";
+import { COMMENT_MARKER, renderMarkdown, renderUnusedMarkdown, scopeLabel } from "./report.js";
 import { parseRepo, run } from "./run.js";
 
 const input = (name: string) => process.env[`INPUT_${name.toUpperCase().replace(/ /g, "_")}`]?.trim() || undefined;
@@ -39,12 +39,15 @@ async function main() {
     token,
     apiUrl,
     warn: (m) => console.log(`::warning::envsure: ${m}`),
+    unused: input("report-unused") === "true" || input("fail-on-unused") === "true",
   });
 
-  const body = renderMarkdown(result.findings, result.dotenvIssues, result.sourcesChecked);
+  const unused = result.unused ?? {};
+  const unusedCount = Object.values(unused).reduce((n, l) => n + l.length, 0);
+  const body = renderMarkdown(result.findings, result.dotenvIssues, result.sourcesChecked) + renderUnusedMarkdown(unused);
   if (process.env.GITHUB_STEP_SUMMARY) appendFileSync(process.env.GITHUB_STEP_SUMMARY, body + "\n");
 
-  const problems = result.findings.length + result.dotenvIssues.length;
+  const problems = result.findings.length + result.dotenvIssues.length + (input("fail-on-unused") === "true" ? unusedCount : 0);
   const commentToken = input("comment-token") ?? token;
   if (pr && !commentToken) console.log("::warning::envsure: no token to comment with; set `comment-token`");
   else if (pr && commentToken && (problems > 0 || input("comment-on-success") === "true")) {
@@ -58,7 +61,8 @@ async function main() {
   }
   for (const i of result.dotenvIssues) console.log(`::warning file=${i.file},line=${i.line}::${i.message}`);
   if (process.env.GITHUB_OUTPUT) {
-    appendFileSync(process.env.GITHUB_OUTPUT, `missing=${result.findings.length}\ndotenv-issues=${result.dotenvIssues.length}\n`);
+    appendFileSync(process.env.GITHUB_OUTPUT,
+      `missing=${result.findings.length}\ndotenv-issues=${result.dotenvIssues.length}\nunused=${unusedCount}\n`);
   }
   if (problems > 0 && input("fail-on-missing") !== "false") process.exitCode = 1;
 }

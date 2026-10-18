@@ -33,6 +33,76 @@ describe("scanText", () => {
     ]);
   });
 
+  it("finds JVM, C#, PHP, Rust, Elixir, Swift and Prisma references", () => {
+    expect(names("App.java", 'String a = System.getenv("JAVA_KEY");')).toEqual(["JAVA_KEY"]);
+    expect(names("App.kt", 'val a = System.getenv("KOTLIN_KEY")')).toEqual(["KOTLIN_KEY"]);
+    expect(names("Program.cs", 'var a = Environment.GetEnvironmentVariable("CS_KEY");')).toEqual(["CS_KEY"]);
+    expect(names("index.php", "getenv('PHP_A'); $_ENV[\"PHP_B\"]; env('PHP_C', 'x'); $this->env('NOPE'); Foo::env('NOPE2');"))
+      .toEqual(["PHP_A", "PHP_B", "PHP_C"]);
+    expect(names("main.rs", 'std::env::var("RS_A"); env::var_os("RS_B"); env!("RS_C"); option_env!("RS_D");'))
+      .toEqual(["RS_A", "RS_B", "RS_C", "RS_D"]);
+    expect(names("config.exs", 'System.get_env("EX_A")\nSystem.fetch_env!("EX_B")')).toEqual(["EX_A", "EX_B"]);
+    expect(names("App.swift", 'ProcessInfo.processInfo.environment["SWIFT_KEY"]')).toEqual(["SWIFT_KEY"]);
+    expect(names("schema.prisma", 'url = env("DATABASE_URL")\nshadowDatabaseUrl = env("SHADOW_DB")')).toEqual(["DATABASE_URL", "SHADOW_DB"]);
+  });
+
+  it("finds Python names imported from os", () => {
+    expect(names("a.py", "from os import environ, getenv\nenviron['PY_A']\ngetenv('PY_B')\nmyenviron['NOPE']")).toEqual(["PY_A", "PY_B"]);
+  });
+
+  it("finds Docker Compose interpolation, skipping variables with defaults", () => {
+    const compose = [
+      "services:",
+      "  web:",
+      "    image: app:${TAG:-latest}",
+      "    environment:",
+      "      DATABASE_URL: ${DATABASE_URL}",
+      "      API_KEY: ${API_KEY:?set API_KEY}",
+      "      LOG: $LOG_LEVEL",
+      "      LITERAL: $$NOT_A_VAR",
+      "      OPTIONAL: ${OPTIONAL-x}",
+    ].join("\n");
+    expect(names("docker-compose.yml", compose)).toEqual(["DATABASE_URL", "API_KEY", "LOG_LEVEL"]);
+    expect(names("compose.prod.yaml", "x: ${PROD_ONLY}")).toEqual(["PROD_ONLY"]);
+  });
+
+  it("finds multi-line destructuring with the right lines", () => {
+    const src = "const {\n  API_KEY,\n  DB_URL: db = 'x',\n  lowercase,\n} = process.env;\n";
+    expect(scanText("a.ts", src).map((r) => [r.name, r.line])).toEqual([["API_KEY", 2], ["DB_URL", 3]]);
+    // Only the added line counts in a PR diff.
+    expect(names("a.ts", src, new Set([3]))).toEqual(["DB_URL"]);
+  });
+
+  it("follows process.env aliases", () => {
+    const src = [
+      "const env = process.env;",
+      "const e2 = import.meta.env",
+      "export const a = env.ALIAS_A, b = env['ALIAS_B'], c = e2.ALIAS_C;",
+      "const notAlias = process.env.DIRECT;",
+      "other.env.NOPE; myenv.NOPE2;",
+    ].join("\n");
+    expect(names("a.ts", src)).toEqual(["ALIAS_A", "ALIAS_B", "ALIAS_C", "DIRECT"]);
+    expect(names("b.ts", 'import { env } from "node:process";\nenv.FROM_IMPORT')).toEqual(["FROM_IMPORT"]);
+    expect(names("c.ts", "env.NOT_BOUND")).toEqual([]);
+  });
+
+  it("finds keys declared in createEnv (t3-env)", () => {
+    const src = [
+      'import { createEnv } from "@t3-oss/env-nextjs";',
+      "export const env = createEnv({",
+      "  server: {",
+      "    DATABASE_URL: z.string().url(),",
+      "    NODE_ENV: z.enum([\"development\", \"production\"]),",
+      "    OPTS: z.object({ NESTED_NOT_ENV: z.string() }),",
+      "  },",
+      "  client: { NEXT_PUBLIC_SITE: z.string() },",
+      "  runtimeEnv: { DATABASE_URL: process.env.DATABASE_URL },",
+      "});",
+    ].join("\n");
+    expect(scanText("env.ts", src).map((r) => `${r.name}:${r.line}`)).toEqual(
+      ["DATABASE_URL:4", "NODE_ENV:5", "OPTS:6", "NEXT_PUBLIC_SITE:8", "DATABASE_URL:9"]);
+  });
+
   it("reads keys from .env.example and ignores unknown files", () => {
     expect(names(".env.example", "# c\nexport A=\nB=1\n")).toEqual(["A", "B"]);
     expect(names("README.md", "process.env.NOPE")).toEqual([]);

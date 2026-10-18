@@ -354,6 +354,13 @@ function cliScenarios(dir) {
   expect("markdown: marker + table", r.stdout.startsWith("<!-- envsure -->") && r.stdout.includes("| `TOTALLY_MISSING` |"), true);
   expect("markdown: exit 1", r.status, 1);
 
+  section("CLI: unused names (live)");
+  r = runCli(dir, [...args, "--format", "json", "--unused"]);
+  const unusedRepo = json(r).unused?.["(repository)"] ?? [];
+  expect("unused: PAGED_VAR_01..34 at repository level",
+    unusedRepo, Array.from({ length: PAGED_VARS - 1 }, (_, i) => pagedVar(i + 1)));
+  expect("unused: names the code uses are not listed", Object.keys(json(r).unused ?? {}), ["(repository)"]);
+
   section("CLI: full scan (no --base)");
   r = runCli(dir, ["--repo", REPO, "--format", "json"]);
   out = json(r);

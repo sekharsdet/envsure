@@ -1,5 +1,5 @@
 import { parseArgs } from "node:util";
-import { renderMarkdown, renderText } from "./report.js";
+import { renderMarkdown, renderText, renderUnusedMarkdown, renderUnusedText } from "./report.js";
 import { parseRepo, run } from "./run.js";
 
 const USAGE = `Usage: envsure [options]
@@ -14,6 +14,8 @@ Options:
   --config <path>       Config file (default: .github/envsure.yml)
   --format <text|markdown|json>
   --offline             Only list references; do not call GitHub
+  --unused              Also list configured names that appear nowhere in the repo
+  --fail-on-unused      Like --unused, and exit 1 when any are found
   -h, --help
 
 GitHub access needs $GITHUB_TOKEN (or $ENVSURE_TOKEN) with Secrets,
@@ -28,6 +30,8 @@ async function main(): Promise<number> {
       config: { type: "string" },
       format: { type: "string", default: "text" },
       offline: { type: "boolean", default: false },
+      unused: { type: "boolean", default: false },
+      "fail-on-unused": { type: "boolean", default: false },
       help: { type: "boolean", short: "h", default: false },
     },
   });
@@ -50,11 +54,13 @@ async function main(): Promise<number> {
     base: values.base,
     configPath: values.config,
     offline: values.offline,
+    unused: values.unused || values["fail-on-unused"],
     repo,
     token,
     apiUrl: process.env.ENVSURE_GITHUB_API_URL || process.env.GITHUB_API_URL,
   });
 
+  const unused = result.unused ?? {};
   if (values.format === "json") {
     console.log(JSON.stringify(values.offline ? result.refs : result, null, 2));
   } else if (values.offline) {
@@ -62,12 +68,15 @@ async function main(): Promise<number> {
     const issues = renderText([], result.dotenvIssues);
     if (issues) console.log(issues);
   } else if (values.format === "markdown") {
-    console.log(renderMarkdown(result.findings, result.dotenvIssues, result.sourcesChecked));
+    console.log(renderMarkdown(result.findings, result.dotenvIssues, result.sourcesChecked) + renderUnusedMarkdown(unused));
   } else {
     const text = renderText(result.findings, result.dotenvIssues, result.sourcesChecked);
     console.log(text || "envsure: all referenced variables are configured");
+    const unusedText = renderUnusedText(unused);
+    if (unusedText) console.log(unusedText);
   }
-  return result.findings.length || result.dotenvIssues.length ? 1 : 0;
+  const failUnused = values["fail-on-unused"] && Object.values(unused).some((l) => l.length);
+  return result.findings.length || result.dotenvIssues.length || failUnused ? 1 : 0;
 }
 
 // Set exitCode rather than calling process.exit(): exiting while sibling fetches are still

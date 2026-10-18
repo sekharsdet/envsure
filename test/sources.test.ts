@@ -49,6 +49,11 @@ describe("hosting platforms", () => {
     expect(await names("vercel", { project: "web-partial", team: "team_123" })).toEqual(["VC_PROD"]);
     expect(warnings).toEqual(["vercel web-partial (production): Vercel returned a partial page; results may be incomplete"]);
   });
+  it("vercel: custom environments by slug", async () => {
+    expect(await names("vercel", { project: "web", team: "team_123", customEnvironment: "staging" })).toEqual(["VC_CUSTOM_STAGING"]);
+    expect(await fails("vercel", { project: "web", team: "team_123", customEnvironment: "qa" }))
+      .toMatch(/no custom environment "qa" \(have: staging\)/);
+  });
   it("vercel: filters by target and drops other branches", async () => {
     expect(await names("vercel", { project: "web", team: "team_123" })).toEqual(["VC_BOTH", "VC_PROD", "VC_STRING_TARGET"]);
     expect(await names("vercel", { project: "web", team: "team_123", target: "preview" })).toEqual(["VC_BOTH", "VC_PREVIEW"]);
@@ -65,10 +70,12 @@ describe("hosting platforms", () => {
       { VERCEL_TOKEN: undefined, MY_VERCEL: mock.env.VERCEL_TOKEN })).toContain("VC_PROD");
     expect(await fails("vercel", { project: "web", tokenEnv: "MY_VERCEL" })).toMatch(/set MY_VERCEL/);
   });
-  it("render: cursor pagination over 101 vars plus env groups", async () => {
+  it("render: cursor pagination over 101 vars plus env groups linked to the service", async () => {
     const service = await names("render", { service: "srv-1" });
-    expect(service).toHaveLength(101);
+    expect(service).toHaveLength(103); // 101 service vars + evg-1 + evg-2 (linked); evg-3 is not linked
     expect(service).toContain("RND_VAR_100");
+    expect(service).toContain("RND_LINKED_VAR");
+    expect(await names("render", { service: "srv-1", linkedEnvGroups: false })).toHaveLength(101);
     expect(await names("render", { envGroups: ["evg-1"] })).toEqual(["RND_GROUP_VAR"]);
     expect(await fails("render", {})).toMatch(/set `service` and\/or `envGroups`/);
   });

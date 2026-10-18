@@ -52,3 +52,16 @@ describe("GitHubClient.inventory", () => {
     await expect(new GitHubClient("t", "https://api.test", impl).inventory("o", "r", [])).rejects.toThrow(/403/);
   });
 });
+
+describe("githubHint", () => {
+  it("names the missing permission", async () => {
+    const { githubHint } = await import("../src/github.js");
+    expect(githubHint(403, "/repos/o/r/actions/secrets?per_page=100&page=1")).toMatch(/lacks Secrets: read/);
+    expect(githubHint(403, "/repos/o/r/actions/variables?per_page=30&page=1")).toMatch(/lacks Variables: read/);
+    expect(githubHint(403, "/repos/o/r/environments/prod/secrets?per_page=100&page=1")).toMatch(/lacks Secrets: read/);
+    expect(githubHint(401, "/repos/o/r/actions/secrets")).toMatch(/invalid or expired/);
+    expect(githubHint(404, "/repos/o/r/actions/secrets")).toMatch(/repository not found/);
+    // A missing environment is fine (treated as empty), so no hint.
+    expect(githubHint(404, "/repos/o/r/environments/qa/secrets")).toBe("");
+  });
+});

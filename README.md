@@ -103,8 +103,8 @@ response bodies.
 
 | Source | Options | Credential |
 |---|---|---|
-| `vercel` | `project`, `target` (production/preview/development), `team`, `gitBranch` | `VERCEL_TOKEN` |
-| `render` | `service` and/or `envGroups: [...]` | `RENDER_API_KEY` |
+| `vercel` | `project`, `target` (production/preview/development) or `customEnvironment` (slug), `team`, `gitBranch` | `VERCEL_TOKEN` |
+| `render` | `service` (env groups linked to it are included; `linkedEnvGroups: false` to skip) and/or `envGroups: [...]` | `RENDER_API_KEY` |
 | `netlify` | `account`, `site`, `context` (production, deploy-preview, branch-deploy, `branch:<name>`) | `NETLIFY_AUTH_TOKEN` |
 | `heroku` | `app` | `HEROKU_API_KEY` |
 | `railway` | `project`, `environment` (id), `service` | `RAILWAY_API_TOKEN` (account) or `RAILWAY_TOKEN` (project) |
@@ -129,6 +129,15 @@ role limited to `ssm:DescribeParameters` and `secretsmanager:ListSecrets` is eno
 If every environment uses platform sources and no workflow files are scanned, no GitHub token is needed.
 Each API base can be overridden with `ENVSURE_<SOURCE>_API_URL` (e.g. `ENVSURE_VERCEL_API_URL`) for
 proxies, sovereign clouds, or tests.
+
+## Unused variables
+
+`--unused` (CLI) or `report-unused: true` (Action) also lists names that are configured (GitHub
+repository/Environment values or a platform source) but appear **nowhere in the repository**: not in code,
+Dockerfiles, scripts, docs or config. Organization-level values, platform-injected names and names that SDKs and
+frameworks read implicitly (`NEXTAUTH_SECRET`, `AWS_ACCESS_KEY_ID`, `DATABASE_URL`, ...) are never listed.
+The report is informational; use `--fail-on-unused` / `fail-on-unused: true` to fail on it, and
+`unusedIgnore: [NAME, PREFIX_*]` in the config for names something else reads.
 
 ## GitHub Action
 

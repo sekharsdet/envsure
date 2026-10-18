@@ -12,24 +12,40 @@ const q = (params: Record<string, string | undefined>) => {
 
 export const vercel: SourceDef = {
   required: ["project"],
-  optional: ["target", "team", "gitBranch", "tokenEnv"],
-  label: (o) => `vercel ${str(o, "project")} (${str(o, "target") ?? "production"})`,
+  optional: ["target", "customEnvironment", "team", "gitBranch", "tokenEnv"],
+  label: (o) => `vercel ${str(o, "project")} (${str(o, "customEnvironment") ?? str(o, "target") ?? "production"})`,
   async fetchNames(o, ctx) {
     const label = this.label(o);
     const t = requireToken(label, o, ctx, ["VERCEL_TOKEN"]);
     const target = str(o, "target") ?? "production";
+    const custom = str(o, "customEnvironment");
     const branch = str(o, "gitBranch");
     const team = str(o, "team");
     const base = apiBase("vercel", "https://api.vercel.com", ctx);
+    const project = `${base}/v10/projects/${encodeURIComponent(str(o, "project")!)}`;
+    const teamQuery = q(team?.startsWith("team_") ? { teamId: team } : { slug: team });
+    const init = { headers: bearer(t.value), tokenName: t.name };
+    // Custom environments (e.g. "staging") are matched by id; vars carry `customEnvironmentIds`.
+    let customId: string | undefined;
+    if (custom) {
+      const list = await requestJson(ctx, label,
+        `${base}/v9/projects/${encodeURIComponent(str(o, "project")!)}/custom-environments${teamQuery}`, init);
+      const envs = (list.environments ?? []) as { id: string; slug: string }[];
+      customId = envs.find((e) => e.slug === custom || e.id === custom)?.id;
+      if (!customId) {
+        throw new SourceError(`${label}: no custom environment "${custom}" (have: ${envs.map((e) => e.slug).join(", ") || "none"})`);
+      }
+    }
     const names = new Set<string>();
     // The official spec declares no paging parameter for this endpoint, so it is read in one request.
-    const body = await requestJson(ctx, label,
-      `${base}/v10/projects/${encodeURIComponent(str(o, "project")!)}/env` +
-        q(team?.startsWith("team_") ? { teamId: team } : { slug: team }),
-      { headers: bearer(t.value), tokenName: t.name });
+    const body = await requestJson(ctx, label, `${project}/env${teamQuery}`, init);
     const envs = Array.isArray(body) ? body : (body.envs ?? [body]);
-    for (const e of envs as { key?: string; target?: string | string[]; gitBranch?: string }[]) {
+    for (const e of envs as { key?: string; target?: string | string[]; gitBranch?: string; customEnvironmentIds?: string[] }[]) {
       if (!e?.key) continue;
+      if (customId) {
+        if (e.customEnvironmentIds?.includes(customId)) names.add(e.key);
+        continue;
+      }
       const targets = Array.isArray(e.target) ? e.target : e.target ? [e.target] : [];
       // Branch-specific preview vars only apply to that branch.
       if (targets.includes(target) && (!e.gitBranch || e.gitBranch === branch)) names.add(e.key);
@@ -44,7 +60,7 @@ export const vercel: SourceDef = {
 
 export const render: SourceDef = {
   required: [],
-  optional: ["service", "envGroups", "tokenEnv"],
+  optional: ["service", "envGroups", "linkedEnvGroups", "tokenEnv"],
   label: (o) => `render ${str(o, "service") ?? (o.envGroups as string[] | undefined)?.join(",") ?? ""}`.trim(),
   async fetchNames(o, ctx) {
     const label = this.label(o);
@@ -66,7 +82,17 @@ export const render: SourceDef = {
         cursor = page[page.length - 1].cursor;
       }
     }
-    for (const g of groups) {
+    // Env groups linked to the service are part of its runtime env; found via their `serviceLinks`.
+    const linked: string[] = [];
+    if (service && o.linkedEnvGroups !== false) {
+      const all = (await requestJson(ctx, label, `${base}/v1/env-groups${q({ limit: "100" })}`, init)) as
+        { id: string; serviceLinks?: { id: string }[] }[];
+      for (const g of all) if (g.serviceLinks?.some((l) => l.id === service)) linked.push(g.id);
+      if (all.length >= 100) {
+        ctx.warn(`${label}: 100+ env groups in the workspace; list linked ones under \`envGroups\` to be sure none are missed`);
+      }
+    }
+    for (const g of new Set([...groups, ...linked])) {
       const body = await requestJson(ctx, label, `${base}/v1/env-groups/${encodeURIComponent(g)}`, init);
       for (const v of (body.envVars ?? []) as { key: string }[]) names.add(v.key);
     }

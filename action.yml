@@ -30,11 +30,21 @@ inputs:
     description: Also comment when nothing is missing.
     required: false
     default: "false"
+  report-unused:
+    description: Also list configured names that appear nowhere in the repository (informational).
+    required: false
+    default: "false"
+  fail-on-unused:
+    description: Report unused names and fail the check when any are found.
+    required: false
+    default: "false"
 outputs:
   missing:
     description: Number of referenced variables missing somewhere.
   dotenv-issues:
     description: Number of empty or placeholder values in committed .env files.
+  unused:
+    description: Number of possibly unused configured names (0 unless report-unused or fail-on-unused).
 runs:
   using: node24
   main: dist/action.js

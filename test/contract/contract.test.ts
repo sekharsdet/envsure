@@ -27,7 +27,11 @@ const ctx = (): SourceContext => ({
 
 /** Connector calls to make per spec; each must succeed against the mock. */
 const SCENARIOS: Record<SpecName, [type: string, opts: Options][]> = {
-  vercel: [["vercel", { project: "web", team: "team_123" }], ["vercel", { project: "web", team: "team_123", target: "preview" }]],
+  vercel: [
+    ["vercel", { project: "web", team: "team_123" }],
+    ["vercel", { project: "web", team: "team_123", target: "preview" }],
+    ["vercel", { project: "web", team: "team_123", customEnvironment: "staging" }],
+  ],
   render: [["render", { service: "srv-1", envGroups: ["evg-1"] }]],
   netlify: [["netlify", { account: "acct", site: "site-1", context: "branch:staging" }]],
   heroku: [["heroku", { app: "hk-app" }]],

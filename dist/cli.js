@@ -43,14 +43,14 @@ var __toCommonJS = (mod) => __copyProps(__defProp({}, "__esModule", { value: tru
 var require_identity = __commonJS({
   "node_modules/yaml/dist/nodes/identity.js"(exports) {
     "use strict";
-    var ALIAS = Symbol.for("yaml.alias");
+    var ALIAS2 = Symbol.for("yaml.alias");
     var DOC = Symbol.for("yaml.document");
     var MAP = Symbol.for("yaml.map");
     var PAIR = Symbol.for("yaml.pair");
     var SCALAR = Symbol.for("yaml.scalar");
     var SEQ = Symbol.for("yaml.seq");
     var NODE_TYPE = Symbol.for("yaml.node.type");
-    var isAlias = (node) => !!node && typeof node === "object" && node[NODE_TYPE] === ALIAS;
+    var isAlias = (node) => !!node && typeof node === "object" && node[NODE_TYPE] === ALIAS2;
     var isDocument = (node) => !!node && typeof node === "object" && node[NODE_TYPE] === DOC;
     var isMap2 = (node) => !!node && typeof node === "object" && node[NODE_TYPE] === MAP;
     var isPair = (node) => !!node && typeof node === "object" && node[NODE_TYPE] === PAIR;
@@ -68,7 +68,7 @@ var require_identity = __commonJS({
     function isNode(node) {
       if (node && typeof node === "object")
         switch (node[NODE_TYPE]) {
-          case ALIAS:
+          case ALIAS2:
           case MAP:
           case SCALAR:
           case SEQ:
@@ -77,7 +77,7 @@ var require_identity = __commonJS({
       return false;
     }
     var hasAnchor = (node) => (isScalar2(node) || isCollection(node)) && !!node.anchor;
-    exports.ALIAS = ALIAS;
+    exports.ALIAS = ALIAS2;
     exports.DOC = DOC;
     exports.MAP = MAP;
     exports.NODE_TYPE = NODE_TYPE;
@@ -1172,8 +1172,8 @@ var require_stringifyString = __commonJS({
             case "u":
               {
                 str2 += json.slice(start, i6);
-                const code = json.substr(i6 + 2, 4);
-                switch (code) {
+                const code2 = json.substr(i6 + 2, 4);
+                switch (code2) {
                   case "0000":
                     str2 += "\\0";
                     break;
@@ -1199,8 +1199,8 @@ var require_stringifyString = __commonJS({
                     str2 += "\\P";
                     break;
                   default:
-                    if (code.substr(0, 2) === "00")
-                      str2 += "\\x" + code.substr(2);
+                    if (code2.substr(0, 2) === "00")
+                      str2 += "\\x" + code2.substr(2);
                     else
                       str2 += json.substr(i6, 6);
                 }
@@ -3678,22 +3678,22 @@ var require_errors = __commonJS({
   "node_modules/yaml/dist/errors.js"(exports) {
     "use strict";
     var YAMLError = class extends Error {
-      constructor(name, pos2, code, message) {
+      constructor(name, pos2, code2, message) {
         super();
         this.name = name;
-        this.code = code;
+        this.code = code2;
         this.message = message;
         this.pos = pos2;
       }
     };
     var YAMLParseError = class extends YAMLError {
-      constructor(pos2, code, message) {
-        super("YAMLParseError", pos2, code, message);
+      constructor(pos2, code2, message) {
+        super("YAMLParseError", pos2, code2, message);
       }
     };
     var YAMLWarning = class extends YAMLError {
-      constructor(pos2, code, message) {
-        super("YAMLWarning", pos2, code, message);
+      constructor(pos2, code2, message) {
+        super("YAMLWarning", pos2, code2, message);
       }
     };
     var prettifyError = (src, lc) => (error2) => {
@@ -4604,7 +4604,7 @@ var require_resolve_flow_scalar = __commonJS({
       const { offset, type, source, end: end2 } = scalar;
       let _type;
       let value;
-      const _onError = (rel, code, msg) => onError(offset + rel, code, msg);
+      const _onError = (rel, code2, msg) => onError(offset + rel, code2, msg);
       switch (type) {
         case "scalar":
           _type = Scalar.Scalar.PLAIN;
@@ -4801,13 +4801,13 @@ var require_resolve_flow_scalar = __commonJS({
     function parseCharCode(source, offset, length, onError) {
       const cc = source.substr(offset, length);
       const ok = cc.length === length && /^[0-9a-fA-F]+$/.test(cc);
-      const code = ok ? parseInt(cc, 16) : NaN;
-      if (isNaN(code)) {
+      const code2 = ok ? parseInt(cc, 16) : NaN;
+      if (isNaN(code2)) {
         const raw = source.substr(offset - 2, length + 2);
         onError(offset - 2, "BAD_DQ_ESCAPE", `Invalid escape sequence ${raw}`);
         return raw;
       }
-      return String.fromCodePoint(code);
+      return String.fromCodePoint(code2);
     }
     exports.resolveFlowScalar = resolveFlowScalar;
   }
@@ -5119,12 +5119,12 @@ var require_composer = __commonJS({
         this.prelude = [];
         this.errors = [];
         this.warnings = [];
-        this.onError = (source, code, message, warning2) => {
+        this.onError = (source, code2, message, warning2) => {
           const pos2 = getErrorPos(source);
           if (warning2)
-            this.warnings.push(new errors.YAMLWarning(pos2, code, message));
+            this.warnings.push(new errors.YAMLWarning(pos2, code2, message));
           else
-            this.errors.push(new errors.YAMLParseError(pos2, code, message));
+            this.errors.push(new errors.YAMLParseError(pos2, code2, message));
         };
         this.directives = new directives.Directives({ version: options.version || "1.2" });
         this.options = options;
@@ -5284,12 +5284,12 @@ var require_cst_scalar = __commonJS({
     var stringifyString = require_stringifyString();
     function resolveAsScalar(token2, strict = true, onError) {
       if (token2) {
-        const _onError = (pos2, code, message) => {
+        const _onError = (pos2, code2, message) => {
           const offset = typeof pos2 === "number" ? pos2 : Array.isArray(pos2) ? pos2[0] : pos2.offset;
           if (onError)
-            onError(offset, code, message);
+            onError(offset, code2, message);
           else
-            throw new errors.YAMLParseError([offset, offset + 1], code, message);
+            throw new errors.YAMLParseError([offset, offset + 1], code2, message);
         };
         switch (token2.type) {
           case "scalar":
@@ -15649,15 +15649,15 @@ function getMessageUnmarshaller(deserializer, toUtf83) {
       unmodeledError.name = message.headers[":error-code"].value;
       throw unmodeledError;
     } else if (messageType === "exception") {
-      const code = message.headers[":exception-type"].value;
-      const exception = { [code]: message };
+      const code2 = message.headers[":exception-type"].value;
+      const exception = { [code2]: message };
       const deserializedException = await deserializer(exception);
       if (deserializedException.$unknown) {
         const error2 = new Error(toUtf83(message.body));
-        error2.name = code;
+        error2.name = code2;
         throw error2;
       }
-      throw deserializedException[code];
+      throw deserializedException[code2];
     } else if (messageType === "event") {
       const event = {
         [message.headers[":event-type"].value]: message
@@ -18104,11 +18104,11 @@ var init_JsonShapeSerializer2 = __esm({
         }
         this.json[this.i++] = QUOTE;
       }
-      writeUnicodeEscape(code) {
+      writeUnicodeEscape(code2) {
         let { json, i: i6 } = this;
         json[i6++] = BACKSLASH;
         json[i6++] = 117;
-        const hex = code.toString(16).padStart(4, "0");
+        const hex = code2.toString(16).padStart(4, "0");
         for (let j6 = 0; j6 < 4; ++j6) {
           json[i6++] = hex.charCodeAt(j6);
         }
@@ -24870,8 +24870,8 @@ or increase socketAcquisitionWarningTimeout=(millis) in the NodeHttpHandler conf
               abortSignal.onabort = onAbort;
             }
           }
-          clientHttp2Stream.on("frameError", (type, code, id) => {
-            rejectWithDestroy(new Error(`Frame type id ${type} in stream id ${id} has failed with code ${code}.`));
+          clientHttp2Stream.on("frameError", (type, code2, id) => {
+            rejectWithDestroy(new Error(`Frame type id ${type} in stream id ${id} has failed with code ${code2}.`));
           });
           clientHttp2Stream.on("error", rejectWithDestroy);
           clientHttp2Stream.on("aborted", () => {
@@ -27735,11 +27735,11 @@ var init_JsonShapeSerializer22 = __esm({
         }
         this.json[this.i++] = QUOTE2;
       }
-      writeUnicodeEscape(code) {
+      writeUnicodeEscape(code2) {
         let { json, i: i6 } = this;
         json[i6++] = BACKSLASH2;
         json[i6++] = 117;
-        const hex = code.toString(16).padStart(4, "0");
+        const hex = code2.toString(16).padStart(4, "0");
         for (let j6 = 0; j6 < 4; ++j6) {
           json[i6++] = hex.charCodeAt(j6);
         }
@@ -29592,9 +29592,9 @@ var init_AwsQueryProtocol = __esm({
         }, output), dataObject);
       }
       loadQueryErrorCode(output, data) {
-        const code = (data.Errors?.[0]?.Error ?? data.Errors?.Error ?? data.Error)?.Code;
-        if (code !== void 0) {
-          return code;
+        const code2 = (data.Errors?.[0]?.Error ?? data.Errors?.Error ?? data.Error)?.Code;
+        if (code2 !== void 0) {
+          return code2;
         }
         if (output.statusCode == 404) {
           return "NotFound";
@@ -34396,7 +34396,7 @@ var require_dist_cjs11 = __commonJS({
     var { createHash: createHash5, createPrivateKey, createPublicKey, sign: sign2 } = __require("node:crypto");
     var { promises } = __require("node:fs");
     var { homedir: homedir2 } = __require("node:os");
-    var { dirname, join: join8 } = __require("node:path");
+    var { dirname, join: join9 } = __require("node:path");
     var LoginCredentialsFetcher = class _LoginCredentialsFetcher {
       profileData;
       init;
@@ -34560,10 +34560,10 @@ var require_dist_cjs11 = __commonJS({
         await promises.writeFile(tokenFilePath, JSON.stringify(token2, null, 2), "utf8");
       }
       getTokenFilePath() {
-        const directory = process.env.AWS_LOGIN_CACHE_DIRECTORY ?? join8(homedir2(), ".aws", "login", "cache");
+        const directory = process.env.AWS_LOGIN_CACHE_DIRECTORY ?? join9(homedir2(), ".aws", "login", "cache");
         const loginSessionBytes = Buffer.from(this.loginSession, "utf8");
         const loginSessionSha256 = createHash5("sha256").update(loginSessionBytes).digest("hex");
-        return join8(directory, `${loginSessionSha256}.json`);
+        return join9(directory, `${loginSessionSha256}.json`);
       }
       derToRawSignature(derSignature) {
         let offset = 2;
@@ -34751,7 +34751,7 @@ var require_dist_cjs13 = __commonJS({
   "node_modules/@aws-sdk/credential-provider-web-identity/dist-cjs/index.js"(exports) {
     var { setCredentialFeature: setCredentialFeature2 } = (init_client3(), __toCommonJS(client_exports2));
     var { CredentialsProviderError: CredentialsProviderError2, externalDataInterceptor: externalDataInterceptor2 } = (init_config2(), __toCommonJS(config_exports));
-    var { readFileSync: readFileSync4 } = __require("node:fs");
+    var { readFileSync: readFileSync5 } = __require("node:fs");
     var fromWebToken = (init) => async (awsIdentityProperties) => {
       init.logger?.debug("@aws-sdk/credential-provider-web-identity - fromWebToken");
       const { roleArn, roleSessionName, webIdentityToken, providerId, policyArns, policy, durationSeconds } = init;
@@ -34792,7 +34792,7 @@ var require_dist_cjs13 = __commonJS({
       }
       const credentials = await fromWebToken({
         ...init,
-        webIdentityToken: externalDataInterceptor2?.getTokenRecord?.()[webIdentityTokenFile] ?? readFileSync4(webIdentityTokenFile, { encoding: "ascii" }),
+        webIdentityToken: externalDataInterceptor2?.getTokenRecord?.()[webIdentityTokenFile] ?? readFileSync5(webIdentityTokenFile, { encoding: "ascii" }),
         roleArn,
         roleSessionName
       })(awsIdentityProperties);
@@ -52830,25 +52830,42 @@ var q3 = (params) => {
 };
 var vercel = {
   required: ["project"],
-  optional: ["target", "team", "gitBranch", "tokenEnv"],
-  label: (o3) => `vercel ${str(o3, "project")} (${str(o3, "target") ?? "production"})`,
+  optional: ["target", "customEnvironment", "team", "gitBranch", "tokenEnv"],
+  label: (o3) => `vercel ${str(o3, "project")} (${str(o3, "customEnvironment") ?? str(o3, "target") ?? "production"})`,
   async fetchNames(o3, ctx) {
     const label = this.label(o3);
     const t = requireToken(label, o3, ctx, ["VERCEL_TOKEN"]);
     const target = str(o3, "target") ?? "production";
+    const custom = str(o3, "customEnvironment");
     const branch = str(o3, "gitBranch");
     const team = str(o3, "team");
     const base = apiBase("vercel", "https://api.vercel.com", ctx);
+    const project = `${base}/v10/projects/${encodeURIComponent(str(o3, "project"))}`;
+    const teamQuery = q3(team?.startsWith("team_") ? { teamId: team } : { slug: team });
+    const init = { headers: bearer(t.value), tokenName: t.name };
+    let customId;
+    if (custom) {
+      const list3 = await requestJson(
+        ctx,
+        label,
+        `${base}/v9/projects/${encodeURIComponent(str(o3, "project"))}/custom-environments${teamQuery}`,
+        init
+      );
+      const envs2 = list3.environments ?? [];
+      customId = envs2.find((e6) => e6.slug === custom || e6.id === custom)?.id;
+      if (!customId) {
+        throw new SourceError(`${label}: no custom environment "${custom}" (have: ${envs2.map((e6) => e6.slug).join(", ") || "none"})`);
+      }
+    }
     const names = /* @__PURE__ */ new Set();
-    const body = await requestJson(
-      ctx,
-      label,
-      `${base}/v10/projects/${encodeURIComponent(str(o3, "project"))}/env` + q3(team?.startsWith("team_") ? { teamId: team } : { slug: team }),
-      { headers: bearer(t.value), tokenName: t.name }
-    );
+    const body = await requestJson(ctx, label, `${project}/env${teamQuery}`, init);
     const envs = Array.isArray(body) ? body : body.envs ?? [body];
     for (const e6 of envs) {
       if (!e6?.key) continue;
+      if (customId) {
+        if (e6.customEnvironmentIds?.includes(customId)) names.add(e6.key);
+        continue;
+      }
       const targets = Array.isArray(e6.target) ? e6.target : e6.target ? [e6.target] : [];
       if (targets.includes(target) && (!e6.gitBranch || e6.gitBranch === branch)) names.add(e6.key);
     }
@@ -52861,7 +52878,7 @@ var vercel = {
 };
 var render = {
   required: [],
-  optional: ["service", "envGroups", "tokenEnv"],
+  optional: ["service", "envGroups", "linkedEnvGroups", "tokenEnv"],
   label: (o3) => `render ${str(o3, "service") ?? o3.envGroups?.join(",") ?? ""}`.trim(),
   async fetchNames(o3, ctx) {
     const label = this.label(o3);
@@ -52886,7 +52903,15 @@ var render = {
         cursor2 = page[page.length - 1].cursor;
       }
     }
-    for (const g6 of groups) {
+    const linked = [];
+    if (service && o3.linkedEnvGroups !== false) {
+      const all = await requestJson(ctx, label, `${base}/v1/env-groups${q3({ limit: "100" })}`, init);
+      for (const g6 of all) if (g6.serviceLinks?.some((l4) => l4.id === service)) linked.push(g6.id);
+      if (all.length >= 100) {
+        ctx.warn(`${label}: 100+ env groups in the workspace; list linked ones under \`envGroups\` to be sure none are missed`);
+      }
+    }
+    for (const g6 of /* @__PURE__ */ new Set([...groups, ...linked])) {
       const body = await requestJson(ctx, label, `${base}/v1/env-groups/${encodeURIComponent(g6)}`, init);
       for (const v of body.envVars ?? []) names.add(v.key);
     }
@@ -53110,6 +53135,7 @@ var DEFAULT_CONFIG = {
   environments: [],
   ignore: [],
   excludePaths: ["node_modules/", "dist/", "build/", "vendor/", ".git/"],
+  unusedIgnore: [],
   sources: {}
 };
 var fail = (msg) => {
@@ -53170,6 +53196,7 @@ function parseConfig(text) {
   return {
     environments,
     ignore: list2(raw.ignore, "ignore") ?? DEFAULT_CONFIG.ignore,
+    unusedIgnore: list2(raw.unusedIgnore, "unusedIgnore") ?? DEFAULT_CONFIG.unusedIgnore,
     // Accept Windows-style separators; git always reports "/".
     excludePaths: (list2(raw.excludePaths, "excludePaths") ?? DEFAULT_CONFIG.excludePaths).map((p3) => p3.replace(/\\/g, "/").replace(/^\.\//, "")),
     sources
@@ -53268,11 +53295,34 @@ function renderText(findings, dotenvIssues, sourcesChecked = {}) {
   }
   return out.join("\n");
 }
+var unusedCount = (unused) => Object.values(unused).reduce((n3, l4) => n3 + l4.length, 0);
+function renderUnusedText(unused) {
+  if (!unusedCount(unused)) return "";
+  return [
+    "Possibly unused (configured, but the name appears nowhere in the repository):",
+    ...Object.entries(unused).map(([env2, names]) => `  ${scopeLabel(env2)}: ${names.join(", ")}`)
+  ].join("\n");
+}
+function renderUnusedMarkdown(unused) {
+  const n3 = unusedCount(unused);
+  if (!n3) return "";
+  return [
+    "",
+    `<details><summary>Possibly unused: ${n3} configured name${n3 === 1 ? "" : "s"} appear nowhere in the repository</summary>`,
+    "",
+    "| Environment | Names |",
+    "|---|---|",
+    ...Object.entries(unused).map(([env2, names]) => `| ${env2 === REPO_SCOPE ? "repository" : `\`${env2}\``} | ${names.map((x) => `\`${x}\``).join(", ")} |`),
+    "",
+    "Remove them, or list them under `unusedIgnore` if something reads them implicitly.",
+    "</details>"
+  ].join("\n");
+}
 
 // src/run.ts
 import { execFileSync, spawnSync } from "node:child_process";
-import { existsSync, readFileSync as readFileSync3 } from "node:fs";
-import { join as join7 } from "node:path";
+import { existsSync, readFileSync as readFileSync4 } from "node:fs";
+import { join as join8 } from "node:path";
 
 // src/dotenv.ts
 var PLACEHOLDERS = [
@@ -53323,7 +53373,7 @@ var GitHubClient = class {
         "X-GitHub-Api-Version": "2022-11-28"
       }
     });
-    if (!res.ok) throw new Error(`GitHub API ${res.status} for ${path}`);
+    if (!res.ok) throw new Error(`GitHub API ${res.status} for ${path}${githubHint(res.status, path)}`);
     return res.json();
   }
   /** Collect `name` fields from a paginated list endpoint. */
@@ -53357,9 +53407,22 @@ var GitHubClient = class {
       ]);
       envs.set(env2, /* @__PURE__ */ new Set([...secrets, ...vars]));
     }
-    return { shared: /* @__PURE__ */ new Set([...repoSecrets, ...orgSecrets, ...repoVars, ...orgVars]), environments: envs };
+    return {
+      shared: /* @__PURE__ */ new Set([...repoSecrets, ...orgSecrets, ...repoVars, ...orgVars]),
+      org: /* @__PURE__ */ new Set([...orgSecrets, ...orgVars]),
+      environments: envs
+    };
   }
 };
+function githubHint(status, path) {
+  const permission = /\/secrets(\?|$)/.test(path) ? "Secrets: read" : /\/variables(\?|$)/.test(path) ? "Variables: read" : /\/environments(\?|$)/.test(path) ? "Environments: read" : "Metadata: read";
+  if (status === 401) return " \u2014 the token is invalid or expired";
+  if (status === 403) {
+    return ` \u2014 the token lacks ${permission} on this repository (GitHub App / fine-grained PAT), or \`repo\` scope (classic PAT); GITHUB_TOKEN cannot list secrets`;
+  }
+  if (status === 404 && !/\/environments\/[^/]+\//.test(path)) return " \u2014 repository not found, or the token cannot access it";
+  return "";
+}
 function notFoundAsEmpty(err) {
   if (/GitHub API 404/.test(err.message)) return [];
   throw err;
@@ -53396,26 +53459,48 @@ function jobScopes(text) {
 // src/scan.ts
 var NAME = "([A-Z_][A-Z0-9_]*)";
 var Q = `["'\`]`;
+var code = (re) => ({ re: new RegExp(re, "g"), kind: "code" });
 var CODE_PATTERNS = {
   js: [
-    { re: new RegExp(`\\bprocess\\.env\\.${NAME}\\b`, "g"), kind: "code" },
-    { re: new RegExp(`\\bprocess\\.env\\[\\s*${Q}${NAME}${Q}\\s*\\]`, "g"), kind: "code" },
-    { re: new RegExp(`\\bimport\\.meta\\.env\\.${NAME}\\b`, "g"), kind: "code" },
-    { re: new RegExp(`\\bBun\\.env\\.${NAME}\\b`, "g"), kind: "code" },
-    { re: new RegExp(`\\bDeno\\.env\\.get\\(\\s*${Q}${NAME}${Q}`, "g"), kind: "code" }
+    code(`\\bprocess\\.env\\.${NAME}\\b`),
+    code(`\\bprocess\\.env\\[\\s*${Q}${NAME}${Q}\\s*\\]`),
+    code(`\\bimport\\.meta\\.env\\.${NAME}\\b`),
+    code(`\\bBun\\.env\\.${NAME}\\b`),
+    code(`\\bDeno\\.env\\.get\\(\\s*${Q}${NAME}${Q}`)
   ],
   py: [
-    { re: new RegExp(`\\bos\\.environ\\[\\s*${Q}${NAME}${Q}\\s*\\]`, "g"), kind: "code" },
-    { re: new RegExp(`\\bos\\.(?:environ\\.get|getenv)\\(\\s*${Q}${NAME}${Q}`, "g"), kind: "code" }
+    code(`(?<![\\w])(?:os\\.)?environ\\[\\s*${Q}${NAME}${Q}\\s*\\]`),
+    code(`(?<![\\w])(?:os\\.)?(?:environ\\.get|getenv)\\(\\s*${Q}${NAME}${Q}`)
   ],
-  go: [{ re: new RegExp(`\\bos\\.(?:Getenv|LookupEnv)\\(\\s*"${NAME}"`, "g"), kind: "code" }],
-  rb: [{ re: new RegExp(`\\bENV(?:\\.fetch\\(\\s*|\\[\\s*)${Q}${NAME}${Q}`, "g"), kind: "code" }],
+  go: [code(`\\bos\\.(?:Getenv|LookupEnv)\\(\\s*"${NAME}"`)],
+  rb: [code(`\\bENV(?:\\.fetch\\(\\s*|\\[\\s*)${Q}${NAME}${Q}`)],
+  // Java, Kotlin, Scala, Groovy
+  jvm: [code(`\\bSystem\\.getenv\\(\\s*"${NAME}"`)],
+  cs: [code(`\\bEnvironment\\.GetEnvironmentVariable\\(\\s*"${NAME}"`)],
+  php: [
+    code(`\\bgetenv\\(\\s*${Q}${NAME}${Q}`),
+    code(`\\$_ENV\\[\\s*${Q}${NAME}${Q}\\s*\\]`),
+    code(`(?<![\\w>$:])env\\(\\s*${Q}${NAME}${Q}`)
+    // Laravel's env() helper
+  ],
+  rs: [
+    code(`\\benv::var(?:_os)?\\(\\s*"${NAME}"`),
+    code(`\\b(?:option_)?env!\\(\\s*"${NAME}"`)
+  ],
+  ex: [code(`\\bSystem\\.(?:get_env|fetch_env!?)\\(\\s*"${NAME}"`)],
+  swift: [code(`\\bProcessInfo\\.processInfo\\.environment\\[\\s*"${NAME}"\\s*\\]`)],
+  prisma: [code(`\\benv\\(\\s*"${NAME}"\\s*\\)`)],
+  // Compose interpolation; `${X:-default}` / `${X-default}` have a fallback and are not required.
+  compose: [code(`(?<!\\$)\\$\\{${NAME}(?::?\\?[^}]*)?\\}`), code(`(?<![$\\w])\\$${NAME}\\b(?![{:-])`)],
   workflow: [
     { re: new RegExp(`\\$\\{\\{[^}]*\\bsecrets\\.${NAME}\\b`, "g"), kind: "workflow-secret" },
     { re: new RegExp(`\\$\\{\\{[^}]*\\bvars\\.${NAME}\\b`, "g"), kind: "workflow-var" }
   ]
 };
-var DESTRUCTURE = /\{([^{}]*)\}\s*=\s*(?:process\.env|import\.meta\.env|Bun\.env)\b/g;
+var ENV_OBJECT = String.raw`(?:process\.env|import\.meta\.env|Bun\.env)`;
+var DESTRUCTURE = new RegExp(String.raw`\{([^{}]*)\}\s*=\s*${ENV_OBJECT}\b`, "g");
+var ALIAS = new RegExp(String.raw`\b(?:const|let|var)\s+([A-Za-z_$][\w$]*)\s*=\s*${ENV_OBJECT}\s*(?![.\[\w])`, "g");
+var PROCESS_ENV_IMPORT = /\bimport\s*\{[^}]*\benv\b[^}]*\}\s*from\s*["'](?:node:)?process["']|\{\s*env\s*\}\s*=\s*(?:process|require\(["'](?:node:)?process["']\))/;
 var EXT_LANG = {
   js: "js",
   jsx: "js",
@@ -53430,43 +53515,112 @@ var EXT_LANG = {
   astro: "js",
   py: "py",
   go: "go",
-  rb: "rb"
+  rb: "rb",
+  java: "jvm",
+  kt: "jvm",
+  kts: "jvm",
+  scala: "jvm",
+  groovy: "jvm",
+  cs: "cs",
+  php: "php",
+  rs: "rs",
+  ex: "ex",
+  exs: "ex",
+  swift: "swift",
+  prisma: "prisma"
 };
 function languageOf(file2) {
   const norm = file2.replace(/\\/g, "/");
   if (/(^|\/)\.github\/workflows\/[^/]+\.ya?ml$/.test(norm)) return "workflow";
   if (/(^|\/)\.env\.(example|sample|template)$/.test(norm)) return "env-example";
+  if (/(^|\/)(docker-)?compose(\.[^/]+)?\.ya?ml$/.test(norm)) return "compose";
   const ext = norm.split(".").pop() ?? "";
   return EXT_LANG[ext];
 }
 function scanText(file2, text, lines) {
   const lang = languageOf(file2);
   if (!lang) return [];
-  const refs = [];
-  text.split(/\r?\n/).forEach((content, i6) => {
-    const line = i6 + 1;
-    if (lines && !lines.has(line)) return;
-    if (lang === "env-example") {
-      const m4 = /^\s*(?:export\s+)?([A-Za-z_][A-Za-z0-9_]*)\s*=/.exec(content);
-      if (m4) refs.push({ name: m4[1], file: file2, line, kind: "env-example" });
-      return;
+  const hits = [];
+  const lineStarts = [0];
+  for (let i6 = 0; i6 < text.length; i6++) if (text[i6] === "\n") lineStarts.push(i6 + 1);
+  const lineOf = (offset) => {
+    let lo = 0;
+    let hi = lineStarts.length - 1;
+    while (lo < hi) {
+      const mid = lo + hi + 1 >> 1;
+      if (lineStarts[mid] <= offset) lo = mid;
+      else hi = mid - 1;
     }
-    const hits = [];
-    for (const { re, kind } of CODE_PATTERNS[lang]) {
-      for (const m4 of content.matchAll(re)) hits.push({ at: m4.index ?? 0, ref: { name: m4[1], file: file2, line, kind } });
-    }
+    return lo + 1;
+  };
+  const add = (name, offset, kind = "code") => {
+    const line = lineOf(offset);
+    if (!lines || lines.has(line)) hits.push({ at: offset, ref: { name, file: file2, line, kind } });
+  };
+  if (lang === "env-example") {
+    for (const m4 of text.matchAll(/^[ \t]*(?:export[ \t]+)?([A-Za-z_][A-Za-z0-9_]*)[ \t]*=/gm)) add(m4[1], m4.index, "env-example");
+  } else {
+    const patterns = [...CODE_PATTERNS[lang]];
     if (lang === "js") {
-      for (const m4 of content.matchAll(DESTRUCTURE)) {
-        for (const part of m4[1].split(",")) {
-          const key = /^\s*([A-Z_][A-Z0-9_]*)\b/.exec(part);
-          if (key) hits.push({ at: (m4.index ?? 0) + m4[1].indexOf(key[1]), ref: { name: key[1], file: file2, line, kind: "code" } });
+      const aliases = [...text.matchAll(ALIAS)].map((m4) => m4[1]);
+      if (PROCESS_ENV_IMPORT.test(text)) aliases.push("env");
+      for (const a6 of new Set(aliases)) {
+        const id = a6.replace(/\$/g, "\\$");
+        patterns.push(code(`(?<![\\w$.])${id}\\.${NAME}\\b`), code(`(?<![\\w$.])${id}\\[\\s*${Q}${NAME}${Q}\\s*\\]`));
+      }
+    }
+    text.split("\n").forEach((content, i6) => {
+      for (const { re, kind } of patterns) for (const m4 of content.matchAll(re)) add(m4[1], lineStarts[i6] + m4.index, kind);
+    });
+    if (lang === "js") {
+      for (const m4 of text.matchAll(DESTRUCTURE)) {
+        const body = m4[1];
+        const bodyStart = m4.index + m4[0].indexOf(body);
+        for (const k6 of body.matchAll(/(?:^|,)\s*([A-Z_][A-Z0-9_]*)\b/g)) add(k6[1], bodyStart + k6.index + k6[0].indexOf(k6[1]));
+      }
+      for (const [name, offset] of createEnvKeys(text)) add(name, offset);
+    }
+  }
+  const seen = /* @__PURE__ */ new Set();
+  const refs = hits.sort((a6, b6) => a6.at - b6.at).map((h6) => h6.ref).filter((r6) => !seen.has(`${r6.line}:${r6.kind}:${r6.name}`) && seen.add(`${r6.line}:${r6.kind}:${r6.name}`));
+  if (lang === "workflow") attachJobEnvironments(text, refs);
+  return refs;
+}
+function createEnvKeys(text) {
+  const out = [];
+  for (const call of text.matchAll(/\bcreateEnv\s*\(\s*\{/g)) {
+    const objStart = call.index + call[0].length - 1;
+    for (const section of ["server", "client", "shared"]) {
+      const re = new RegExp(`\\b${section}\\s*:\\s*\\{`, "g");
+      re.lastIndex = objStart;
+      const m4 = re.exec(text);
+      if (!m4 || m4.index > matchingBrace(text, objStart)) continue;
+      const open = m4.index + m4[0].length - 1;
+      const close = matchingBrace(text, open);
+      let depth = 0;
+      for (let i6 = open; i6 < close; i6++) {
+        const ch = text[i6];
+        if (ch === "{" || ch === "(" || ch === "[") depth++;
+        else if (ch === "}" || ch === ")" || ch === "]") depth--;
+        else if (depth === 1 && /[A-Z_]/.test(ch) && /[\s,{]/.test(text[i6 - 1])) {
+          const key = /^([A-Z_][A-Z0-9_]*)\s*:/.exec(text.slice(i6, i6 + 200));
+          if (key) {
+            out.push([key[1], i6]);
+            i6 += key[1].length - 1;
+          }
         }
       }
     }
-    refs.push(...hits.sort((a6, b6) => a6.at - b6.at).map((h6) => h6.ref));
-  });
-  if (lang === "workflow") attachJobEnvironments(text, refs);
-  return refs;
+  }
+  return out;
+}
+function matchingBrace(text, open) {
+  let depth = 0;
+  for (let i6 = open; i6 < text.length; i6++) {
+    if (text[i6] === "{") depth++;
+    else if (text[i6] === "}" && --depth === 0) return i6;
+  }
+  return text.length;
 }
 function attachJobEnvironments(text, refs) {
   let scopes;
@@ -53503,6 +53657,68 @@ function addedLines(diff) {
   return out;
 }
 
+// src/unused.ts
+import { readFileSync as readFileSync3, statSync } from "node:fs";
+import { join as join7 } from "node:path";
+var IMPLICIT = [
+  "NEXTAUTH_SECRET",
+  "NEXTAUTH_URL",
+  "AUTH_SECRET",
+  "AUTH_URL",
+  "AUTH_TRUST_HOST",
+  "AWS_ACCESS_KEY_ID",
+  "AWS_SECRET_ACCESS_KEY",
+  "AWS_SESSION_TOKEN",
+  "AWS_PROFILE",
+  "GOOGLE_APPLICATION_CREDENTIALS",
+  "AZURE_CLIENT_ID",
+  "AZURE_TENANT_ID",
+  "AZURE_CLIENT_SECRET",
+  "DATABASE_URL",
+  "REDIS_URL",
+  "NODE_OPTIONS",
+  "NPM_TOKEN",
+  "NODE_AUTH_TOKEN",
+  "JAVA_OPTS",
+  "PYTHONPATH",
+  "SENTRY_AUTH_TOKEN",
+  "SENTRY_ORG",
+  "SENTRY_PROJECT",
+  "TURBO_TOKEN",
+  "TURBO_TEAM",
+  "RAILS_MASTER_KEY",
+  "SECRET_KEY_BASE",
+  "WEB_CONCURRENCY"
+];
+function repoWords(cwd, files) {
+  const words = /* @__PURE__ */ new Set();
+  for (const f6 of files) {
+    const p3 = join7(cwd, f6);
+    try {
+      if (statSync(p3).size > 2 * 1024 * 1024) continue;
+      const text = readFileSync3(p3, "utf8");
+      if (text.includes("\0")) continue;
+      for (const m4 of text.matchAll(/[A-Za-z_][A-Za-z0-9_]{2,}/g)) words.add(m4[0]);
+    } catch {
+    }
+  }
+  return words;
+}
+function findUnused(config, inv, runtime, used) {
+  const skip = [...DEFAULT_IGNORE, ...config.ignore, ...config.unusedIgnore, ...IMPLICIT, "GITHUB_TOKEN"];
+  const unusedOf = (names) => [...names].filter((n3) => !used.has(n3) && !inv.org?.has(n3) && !matchesAny(n3, skip)).sort();
+  const out = {};
+  const repoLevel = unusedOf(inv.shared);
+  if (repoLevel.length) out[REPO_SCOPE] = repoLevel;
+  const envs = /* @__PURE__ */ new Set([...config.environments, ...runtime.keys()]);
+  for (const env2 of envs) {
+    const names = runtime.get(env2) ?? inv.environments.get(env2) ?? /* @__PURE__ */ new Set();
+    const list3 = unusedOf([...names].filter((n3) => !inv.shared.has(n3)));
+    if (list3.length) out[env2] = list3;
+  }
+  return out;
+}
+
 // src/run.ts
 var git = (cwd, args) => execFileSync("git", ["-c", "core.quotepath=off", ...args], {
   cwd,
@@ -53525,9 +53741,9 @@ function loadConfig2(cwd, configPath, ref) {
     }
     return parseConfig(text);
   }
-  const p3 = join7(cwd, rel);
+  const p3 = join8(cwd, rel);
   if (configPath && !existsSync(p3)) throw new Error(`config not found: ${p3}`);
-  return parseConfig(existsSync(p3) ? readFileSync3(p3, "utf8") : void 0);
+  return parseConfig(existsSync(p3) ? readFileSync4(p3, "utf8") : void 0);
 }
 function collectRefs(cwd, config, base) {
   const excluded = (f6) => config.excludePaths.some((p3) => f6.startsWith(p3));
@@ -53535,11 +53751,11 @@ function collectRefs(cwd, config, base) {
   let files;
   if (base) {
     const added = addedLines(git(cwd, ["diff", "-U0", "--no-color", `${base}...HEAD`]));
-    files = [...added.keys()].filter((f6) => !excluded(f6) && existsSync(join7(cwd, f6)));
-    for (const f6 of files) refs.push(...scanText(f6, readFileSync3(join7(cwd, f6), "utf8"), added.get(f6)));
+    files = [...added.keys()].filter((f6) => !excluded(f6) && existsSync(join8(cwd, f6)));
+    for (const f6 of files) refs.push(...scanText(f6, readFileSync4(join8(cwd, f6), "utf8"), added.get(f6)));
   } else {
-    files = git(cwd, ["ls-files"]).split("\n").filter((f6) => f6 && !excluded(f6) && existsSync(join7(cwd, f6)));
-    for (const f6 of files) refs.push(...scanText(f6, readFileSync3(join7(cwd, f6), "utf8")));
+    files = git(cwd, ["ls-files"]).split("\n").filter((f6) => f6 && !excluded(f6) && existsSync(join8(cwd, f6)));
+    for (const f6 of files) refs.push(...scanText(f6, readFileSync4(join8(cwd, f6), "utf8")));
   }
   return { refs, files };
 }
@@ -53557,7 +53773,7 @@ function needsGitHub(config, refs) {
 async function run(opts) {
   const config = loadConfig2(opts.cwd, opts.configPath, opts.configRef);
   const { refs, files } = collectRefs(opts.cwd, config, opts.base);
-  const dotenvIssues = files.filter(isCommittedEnvFile).flatMap((f6) => lintDotenv(f6, readFileSync3(join7(opts.cwd, f6), "utf8")));
+  const dotenvIssues = files.filter(isCommittedEnvFile).flatMap((f6) => lintDotenv(f6, readFileSync4(join8(opts.cwd, f6), "utf8")));
   const sourcesChecked = {};
   for (const [env2, list3] of Object.entries(config.sources)) {
     sourcesChecked[env2] = list3.map((s2) => s2.type === "github" ? `github ${githubEnvOf(env2, s2)}` : SOURCES[s2.type].label(s2.options));
@@ -53580,7 +53796,13 @@ async function run(opts) {
     exec: (cmd, args, o3) => spawnSync(cmd, args ?? [], { ...o3, encoding: "utf8" }),
     warn: opts.warn ?? ((m4) => console.error(`envsure: warning: ${m4}`))
   });
-  return { config, refs, findings: check(refs, inv, config, runtime), dotenvIssues, sourcesChecked };
+  const result = { config, refs, findings: check(refs, inv, config, runtime), dotenvIssues, sourcesChecked };
+  if (opts.unused) {
+    const excluded = (f6) => config.excludePaths.some((p3) => f6.startsWith(p3));
+    const all = git(opts.cwd, ["ls-files"]).split("\n").filter((f6) => f6 && !excluded(f6));
+    result.unused = findUnused(config, inv, runtime, repoWords(opts.cwd, all));
+  }
+  return result;
 }
 async function fetchRuntime(config, inv, ctx) {
   const runtime = /* @__PURE__ */ new Map();
@@ -53628,6 +53850,8 @@ Options:
   --config <path>       Config file (default: .github/envsure.yml)
   --format <text|markdown|json>
   --offline             Only list references; do not call GitHub
+  --unused              Also list configured names that appear nowhere in the repo
+  --fail-on-unused      Like --unused, and exit 1 when any are found
   -h, --help
 
 GitHub access needs $GITHUB_TOKEN (or $ENVSURE_TOKEN) with Secrets,
@@ -53641,6 +53865,8 @@ async function main() {
       config: { type: "string" },
       format: { type: "string", default: "text" },
       offline: { type: "boolean", default: false },
+      unused: { type: "boolean", default: false },
+      "fail-on-unused": { type: "boolean", default: false },
       help: { type: "boolean", short: "h", default: false }
     }
   });
@@ -53661,10 +53887,12 @@ async function main() {
     base: values.base,
     configPath: values.config,
     offline: values.offline,
+    unused: values.unused || values["fail-on-unused"],
     repo,
     token: token2,
     apiUrl: process.env.ENVSURE_GITHUB_API_URL || process.env.GITHUB_API_URL
   });
+  const unused = result.unused ?? {};
   if (values.format === "json") {
     console.log(JSON.stringify(values.offline ? result.refs : result, null, 2));
   } else if (values.offline) {
@@ -53672,16 +53900,19 @@ async function main() {
     const issues = renderText([], result.dotenvIssues);
     if (issues) console.log(issues);
   } else if (values.format === "markdown") {
-    console.log(renderMarkdown(result.findings, result.dotenvIssues, result.sourcesChecked));
+    console.log(renderMarkdown(result.findings, result.dotenvIssues, result.sourcesChecked) + renderUnusedMarkdown(unused));
   } else {
     const text = renderText(result.findings, result.dotenvIssues, result.sourcesChecked);
     console.log(text || "envsure: all referenced variables are configured");
+    const unusedText = renderUnusedText(unused);
+    if (unusedText) console.log(unusedText);
   }
-  return result.findings.length || result.dotenvIssues.length ? 1 : 0;
+  const failUnused = values["fail-on-unused"] && Object.values(unused).some((l4) => l4.length);
+  return result.findings.length || result.dotenvIssues.length || failUnused ? 1 : 0;
 }
 main().then(
-  (code) => {
-    process.exitCode = code;
+  (code2) => {
+    process.exitCode = code2;
   },
   (err) => {
     console.error(`envsure: ${err instanceof Error ? err.message : err}`);

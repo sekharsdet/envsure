@@ -14,6 +14,8 @@ export interface Config {
   ignore: string[];
   /** Path prefixes to skip when scanning. */
   excludePaths: string[];
+  /** Names never reported as unused (trailing * is a prefix match). */
+  unusedIgnore: string[];
   /** Where each environment's runtime values live. Environments without an entry use GitHub. */
   sources: Record<string, SourceSpec[]>;
 }
@@ -30,6 +32,7 @@ export const DEFAULT_CONFIG: Config = {
   environments: [],
   ignore: [],
   excludePaths: ["node_modules/", "dist/", "build/", "vendor/", ".git/"],
+  unusedIgnore: [],
   sources: {},
 };
 
@@ -95,6 +98,7 @@ export function parseConfig(text: string | undefined): Config {
   return {
     environments,
     ignore: list(raw.ignore, "ignore") ?? DEFAULT_CONFIG.ignore,
+    unusedIgnore: list(raw.unusedIgnore, "unusedIgnore") ?? DEFAULT_CONFIG.unusedIgnore,
     // Accept Windows-style separators; git always reports "/".
     excludePaths: (list(raw.excludePaths, "excludePaths") ?? DEFAULT_CONFIG.excludePaths).map((p) => p.replace(/\\/g, "/").replace(/^\.\//, "")),
     sources,

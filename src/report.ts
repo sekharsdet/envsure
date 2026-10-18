@@ -47,3 +47,23 @@ export function renderText(findings: Finding[], dotenvIssues: DotenvIssue[], sou
   }
   return out.join("\n");
 }
+
+const unusedCount = (unused: Record<string, string[]>) => Object.values(unused).reduce((n, l) => n + l.length, 0);
+
+export function renderUnusedText(unused: Record<string, string[]>): string {
+  if (!unusedCount(unused)) return "";
+  return ["Possibly unused (configured, but the name appears nowhere in the repository):",
+    ...Object.entries(unused).map(([env, names]) => `  ${scopeLabel(env)}: ${names.join(", ")}`)].join("\n");
+}
+
+export function renderUnusedMarkdown(unused: Record<string, string[]>): string {
+  const n = unusedCount(unused);
+  if (!n) return "";
+  return [
+    "", `<details><summary>Possibly unused: ${n} configured name${n === 1 ? "" : "s"} appear nowhere in the repository</summary>`, "",
+    "| Environment | Names |", "|---|---|",
+    ...Object.entries(unused).map(([env, names]) =>
+      `| ${env === REPO_SCOPE ? "repository" : `\`${env}\``} | ${names.map((x) => `\`${x}\``).join(", ")} |`),
+    "", "Remove them, or list them under `unusedIgnore` if something reads them implicitly.", "</details>",
+  ].join("\n");
+}

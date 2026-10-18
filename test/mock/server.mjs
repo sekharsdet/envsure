@@ -65,10 +65,13 @@ function routes(base) {
           env("VC_BOTH", ["production", "preview", "development"]),
           env("VC_BRANCH_ONLY", ["preview"], { gitBranch: "feature-x" }),
           env("VC_STRING_TARGET", "production"),
+          env("VC_CUSTOM_STAGING", [], { customEnvironmentIds: ["env_staging123"] }),
         ],
         hiddenProductionEnvCount: 0,
       }];
     }],
+    ["GET", /^\/vercel\/v9\/projects\/web\/custom-environments$/, (q) => bearer(q, TOKENS.vercel), () =>
+      [200, { accountLimit: { total: 12 }, environments: [{ id: "env_staging123", slug: "staging", type: "preview" }] }]],
 
     // ---- Render: 101 service vars over two cursor pages + an env group
     ["GET", /^\/render\/v1\/services\/srv-1\/env-vars$/, (q) => bearer(q, TOKENS.render), (_m, url) => {
@@ -78,8 +81,14 @@ function routes(base) {
       const start = cursor ? all.indexOf(cursor) + 1 : 0;
       return [200, all.slice(start, start + limit).map((key) => ({ envVar: { key, value: VALUE }, cursor: key }))];
     }],
-    ["GET", /^\/render\/v1\/env-groups\/evg-1$/, (q) => bearer(q, TOKENS.render), () =>
-      [200, { id: "evg-1", name: "shared", envVars: [{ key: "RND_GROUP_VAR", value: VALUE }] }]],
+    ["GET", /^\/render\/v1\/env-groups\/(evg-1|evg-2)$/, (q) => bearer(q, TOKENS.render), (m) =>
+      [200, { id: m[1], name: m[1], envVars: [{ key: m[1] === "evg-1" ? "RND_GROUP_VAR" : "RND_LINKED_VAR", value: VALUE }] }]],
+    // Env group list: evg-1 and evg-2 are linked to srv-1, evg-3 is not.
+    ["GET", /^\/render\/v1\/env-groups$/, (q) => bearer(q, TOKENS.render), () => {
+      const link = { id: "srv-1", name: "web", type: "web" };
+      const g = (id, links) => ({ id, name: id, ownerId: "tea-1", createdAt: "2026-01-01T00:00:00Z", updatedAt: "2026-01-01T00:00:00Z", serviceLinks: links });
+      return [200, [g("evg-1", [link]), g("evg-2", [link]), g("evg-3", [])]];
+    }],
 
     // ---- Netlify
     ["GET", /^\/netlify\/api\/v1\/accounts\/acct\/env$/, (q) => bearer(q, TOKENS.netlify), (_m, url) => {

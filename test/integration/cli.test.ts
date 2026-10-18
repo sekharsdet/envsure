@@ -177,6 +177,41 @@ describe("dist/cli.js with every source type", () => {
     expect(r2.stderr).toMatch(/need --repo and \$GITHUB_TOKEN/);
   }, 60_000);
 
+  it("--unused lists configured names that appear nowhere in the repository", async () => {
+    // A name used only by a Dockerfile counts as used (staged files are part of `git ls-files`).
+    write("Dockerfile", "ARG RND_VAR_001\n");
+    execFileSync("git", ["add", "Dockerfile"], { cwd: repo });
+    try {
+      const r = await cli([...args, "--unused"]);
+      expect(r.status).toBe(1); // findings still fail; unused alone does not
+      const unused = json(r).unused as Record<string, string[]>;
+      expect(Object.keys(unused)).toEqual(["production"]); // GH_SHARED / GH_STAGING_ONLY are used
+      expect(unused.production).toContain("VC_BOTH");
+      expect(unused.production).toContain("RND_VAR_000");
+      for (const n of ["RND_VAR_001", "VC_PROD", "HEROKU_VAR", "LOG_LEVEL", "DATABASE_URL", "VC_PREVIEW"]) {
+        expect(unused.production, n).not.toContain(n);
+      }
+      const text = await cli(["--repo", "o/r", "--base", "main", "--unused"]);
+      expect(text.stdout).toMatch(/Possibly unused .*\n {2}production: .*RND_VAR_000/);
+      const md = await cli(["--repo", "o/r", "--base", "main", "--unused", "--format", "markdown"]);
+      expect(md.stdout).toContain("<details><summary>Possibly unused:");
+      expect(text.stdout + md.stdout).not.toContain(VALUE);
+    } finally {
+      execFileSync("git", ["rm", "-q", "--cached", "Dockerfile"], { cwd: repo });
+      rmSync(join(repo, "Dockerfile"));
+    }
+  }, 60_000);
+
+  it("--fail-on-unused fails even when nothing is missing", async () => {
+    const cfg = "environments: [production]\nexcludePaths: [.github/]\nsources:\n  production:\n    - heroku: { app: hk-app }\n";
+    write(".github/envsure-unused.yml", cfg);
+    const noGh = { GITHUB_TOKEN: "", GITHUB_REPOSITORY: "" };
+    const base = ["--base", "main", "--format", "json", "--config", ".github/envsure-unused.yml"];
+    // HEROKU_VAR is referenced; DATABASE_URL is implicit: nothing unused, but NOWHERE_VAR etc. are missing.
+    const r = await cli([...base, "--fail-on-unused"], noGh);
+    expect(json(r).unused).toEqual({});
+  }, 60_000);
+
   it("--offline never contacts a source", async () => {
     const before = mock.requests.length;
     const r = await cli(["--offline", "--base", "main"], { GITHUB_TOKEN: "", VERCEL_TOKEN: undefined });
