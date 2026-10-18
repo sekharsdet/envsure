@@ -1,0 +1,40 @@
+name: EnvSure
+description: Fail a PR when code references an env var missing in a deployment environment (GitHub, Vercel, Render, AWS, ...). Names only.
+author: sekharsdet
+branding:
+  icon: shield
+  color: green
+inputs:
+  token:
+    description: >
+      Token that can read GitHub secret and variable names (GitHub App installation token or
+      fine-grained PAT with Secrets, Variables, Environments and Actions read; the default
+      GITHUB_TOKEN cannot list secrets). Only needed when GitHub is checked: for workflow
+      references and environments without platform sources. Platform sources (Vercel, Render,
+      AWS, ...) read their own credentials from the step's `env:`.
+    required: false
+  comment-token:
+    description: Token used to comment on the PR (needs pull-requests write).
+    required: false
+    default: ${{ github.token }}
+  config:
+    description: >
+      Path to the config file (default .github/envsure.yml; optional when that file is absent).
+      On pull requests it is read from the base commit, so a PR cannot change its own check.
+    required: false
+  fail-on-missing:
+    description: Fail the check when variables are missing.
+    required: false
+    default: "true"
+  comment-on-success:
+    description: Also comment when nothing is missing.
+    required: false
+    default: "false"
+outputs:
+  missing:
+    description: Number of referenced variables missing somewhere.
+  dotenv-issues:
+    description: Number of empty or placeholder values in committed .env files.
+runs:
+  using: node24
+  main: dist/action.js

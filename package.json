@@ -1,0 +1,55 @@
+{
+  "name": "envsure",
+  "version": "1.0.0",
+  "description": "Fail a PR when code references an env var that is missing in a deployment environment (GitHub, Vercel, Render, AWS, and more). Reads names only.",
+  "directories": {
+    "test": "test"
+  },
+  "scripts": {
+    "build": "esbuild src/cli.ts src/action.ts --bundle --platform=node --target=node22 --format=esm --outdir=dist --banner:js=\"import{createRequire}from\\\"module\\\";const require=createRequire(import.meta.url);\"",
+    "typecheck": "tsc",
+    "test": "vitest run --exclude \"test/{integration,contract,emulators,live}/**\"",
+    "test:integration": "vitest run test/integration",
+    "test:contract": "vitest run test/contract",
+    "test:emulators": "vitest run test/emulators",
+    "test:live": "vitest run test/live",
+    "check": "npm run typecheck && npm test",
+    "e2e": "node scripts/e2e.mjs"
+  },
+  "license": "MIT",
+  "devDependencies": {
+    "@types/node": "^22.9.0",
+    "ajv": "^8.20.0",
+    "esbuild": "^0.24.0",
+    "graphql": "^17.0.2",
+    "typescript": "^5.6.3",
+    "vitest": "^2.1.4"
+  },
+  "dependencies": {
+    "@aws-sdk/client-secrets-manager": "^3.1152.0",
+    "@aws-sdk/client-ssm": "^3.1152.0",
+    "@aws-sdk/credential-providers": "^3.1152.0",
+    "yaml": "^2.6.0"
+  },
+  "private": true,
+  "type": "module",
+  "bin": {
+    "envsure": "dist/cli.js"
+  },
+  "engines": {
+    "node": ">=22"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/sekharsdet/envsure.git"
+  },
+  "keywords": [
+    "github-action",
+    "environment-variables",
+    "secrets",
+    "vercel",
+    "render",
+    "aws",
+    "ci"
+  ]
+}

@@ -1,0 +1,174 @@
+name: ci
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+  schedule:
+    # Weekly: re-download every platform's API description and re-run the live checks,
+    # so API drift on Vercel/Render/AWS/... shows up even when this repo does not change.
+    - cron: "17 6 * * 1"
+permissions:
+  contents: read
+jobs:
+  check:
+    if: github.event_name != 'push' || github.ref == 'refs/heads/main'
+    name: test (${{ matrix.os }}, node ${{ matrix.node }})
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
+        node: [22, 24]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ matrix.node }}
+          cache: npm
+      - run: npm ci
+      - run: npm run check
+      - run: npm run build
+      - name: dist is up to date
+        if: matrix.os == 'ubuntu-latest' && matrix.node == 22
+        shell: bash
+        run: git diff --exit-code -- dist || (echo "::error::Run npm run build and commit dist/" && exit 1)
+      - name: integration tests (built CLI and Action against every platform mock)
+        run: npm run test:integration
+      - name: self-scan (offline)
+        run: node dist/cli.js --offline
+
+  action:
+    # Runs the committed Action via `uses: ./` on every runner OS, against the platform mock.
+    # Push events only: on pull_request the Action reads its config from the PR base, where
+    # this smoke config does not exist.
+    if: github.event_name == 'push'
+    name: action smoke (${{ matrix.os }})
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+      - name: start platform mock
+        shell: bash
+        run: |
+          node test/mock/server.mjs 8787 > mock.env &
+          for i in $(seq 1 50); do grep -q MOCK_BASE mock.env 2>/dev/null && break; sleep 0.2; done
+          grep '^ENVSURE_' mock.env >> "$GITHUB_ENV"
+          cat mock.env
+      - name: write a config that uses platform sources
+        shell: bash
+        run: |
+          mkdir -p smoke && cat > smoke/envsure.yml <<'EOF'
+          environments: [production]
+          excludePaths: [node_modules/, dist/, test/, scripts/, .github/]
+          sources:
+            production:
+              - heroku: { app: hk-app }
+              - aws-ssm: { path: /web/prod, region: us-east-1 }
+          EOF
+      - uses: ./
+        id: envsure
+        env:
+          HEROKU_API_KEY: heroku-mock-token
+          AWS_ACCESS_KEY_ID: AKIDMOCK
+          AWS_SECRET_ACCESS_KEY: mock-aws-secret
+        with:
+          token: gh-mock-token
+          config: smoke/envsure.yml
+          fail-on-missing: "false"
+      - name: outputs are set
+        shell: bash
+        env:
+          MISSING: ${{ steps.envsure.outputs.missing }}
+          DOTENV: ${{ steps.envsure.outputs.dotenv-issues }}
+        run: |
+          echo "missing=$MISSING dotenv-issues=$DOTENV"
+          [[ "$MISSING" =~ ^[0-9]+$ ]] && [[ "$DOTENV" =~ ^[0-9]+$ ]]
+
+  contract:
+    # Every connector's requests and the responses it parses, checked against each platform's
+    # official API description (OpenAPI / Swagger / Google discovery / Heroku schema / Railway GraphQL).
+    name: API contracts (official specs)
+    if: github.event_name != 'push' || github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+      - id: week
+        run: echo "week=$(date -u +%G-%V)" >> "$GITHUB_OUTPUT"
+      - uses: actions/cache@v4
+        with:
+          path: .cache/specs
+          key: api-specs-${{ steps.week.outputs.week }}
+          restore-keys: api-specs-
+      - run: npm ci
+      - run: npm run test:contract
+
+  emulators:
+    # Connectors against real emulators: moto (AWS SSM + Secrets Manager), Lowkey Vault
+    # (Azure Key Vault) and a kind Kubernetes cluster (command source).
+    name: emulators (AWS, Azure Key Vault, Kubernetes)
+    if: github.event_name != 'push' || github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    services:
+      moto:
+        image: motoserver/moto:5.2.3
+        ports: ["5000:5000"]
+      lowkey-vault:
+        image: nagyesta/lowkey-vault:7.3.98
+        ports: ["8443:8443"]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci
+      - uses: helm/kind-action@v1
+      - name: wait for emulators
+        run: |
+          for i in $(seq 1 60); do curl -sf http://localhost:5000/moto-api/ >/dev/null && break; sleep 1; done
+          for i in $(seq 1 60); do curl -sk -o /dev/null https://localhost:8443/ && break; sleep 1; done
+      - run: npm run test:emulators
+        env:
+          MOTO_URL: http://localhost:5000
+          LOWKEY_VAULT_URL: https://localhost:8443
+          # Lowkey Vault serves a self-signed certificate; only this test process trusts it.
+          NODE_TLS_REJECT_UNAUTHORIZED: "0"
+          E2E_KUBECTL: "1"
+
+  live-fly:
+    # Real Fly.io API on every OS, with a deploy token scoped to one throwaway app.
+    # Secrets are not available to fork PRs, so those skip.
+    name: live Fly.io (${{ matrix.os }})
+    if: >-
+      (github.event_name != 'push' || github.ref == 'refs/heads/main') &&
+      (github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository)
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci
+      - run: npm run test:live
+        env:
+          FLY_E2E_TOKEN: ${{ secrets.FLY_E2E_TOKEN }}
+          FLY_E2E_APP: ${{ vars.FLY_E2E_APP }}
