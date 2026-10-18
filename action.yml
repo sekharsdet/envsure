@@ -1,5 +1,5 @@
 name: EnvSure
-description: Fail a PR when code references an env var missing in a deployment environment (GitHub, Vercel, Render, AWS, ...). Names only.
+description: Fail PRs that use environment variables (env vars) or secrets missing in Vercel, AWS, Render, GitHub & more. Names only.
 author: sekharsdet
 branding:
   icon: shield

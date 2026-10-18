@@ -6,12 +6,13 @@ on:
   schedule:
     # Weekly: re-download every platform's API description and re-run the live checks,
     # so API drift on Vercel/Render/AWS/... shows up even when this repo does not change.
+    # Scheduled runs only do work in the public repo, where Actions minutes are free.
     - cron: "17 6 * * 1"
 permissions:
   contents: read
 jobs:
   check:
-    if: github.event_name != 'push' || github.ref == 'refs/heads/main'
+    if: (github.event_name != 'push' || github.ref == 'refs/heads/main') && (github.event_name != 'schedule' || github.repository == 'sekharsdet/envsure')
     name: test (${{ matrix.os }}, node ${{ matrix.node }})
     strategy:
       fail-fast: false
@@ -98,7 +99,7 @@ jobs:
     # Every connector's requests and the responses it parses, checked against each platform's
     # official API description (OpenAPI / Swagger / Google discovery / Heroku schema / Railway GraphQL).
     name: API contracts (official specs)
-    if: github.event_name != 'push' || github.ref == 'refs/heads/main'
+    if: (github.event_name != 'push' || github.ref == 'refs/heads/main') && (github.event_name != 'schedule' || github.repository == 'sekharsdet/envsure')
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -120,7 +121,7 @@ jobs:
     # Connectors against real emulators: moto (AWS SSM + Secrets Manager), Lowkey Vault
     # (Azure Key Vault) and a kind Kubernetes cluster (command source).
     name: emulators (AWS, Azure Key Vault, Kubernetes)
-    if: github.event_name != 'push' || github.ref == 'refs/heads/main'
+    if: (github.event_name != 'push' || github.ref == 'refs/heads/main') && (github.event_name != 'schedule' || github.repository == 'sekharsdet/envsure')
     runs-on: ubuntu-latest
     services:
       moto:
@@ -154,7 +155,7 @@ jobs:
     # Secrets are not available to fork PRs, so those skip.
     name: live Fly.io (${{ matrix.os }})
     if: >-
-      (github.event_name != 'push' || github.ref == 'refs/heads/main') &&
+      (github.event_name != 'push' || github.ref == 'refs/heads/main') && (github.event_name != 'schedule' || github.repository == 'sekharsdet/envsure') &&
       (github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository)
     strategy:
       fail-fast: false
