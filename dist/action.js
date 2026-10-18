@@ -52732,7 +52732,7 @@ var bearer = (t) => ({ Authorization: `Bearer ${t}` });
 function cliToken(label, opts, ctx, envNames, cli) {
   const t = token(opts, ctx, envNames);
   if (t.value) return t;
-  const r6 = ctx.exec(cli.cmd, cli.args, { encoding: "utf8", shell: process.platform === "win32", timeout: 3e4 });
+  const r6 = process.platform === "win32" ? ctx.exec([cli.cmd, ...cli.args].join(" "), void 0, { encoding: "utf8", shell: true, timeout: 3e4 }) : ctx.exec(cli.cmd, cli.args, { encoding: "utf8", timeout: 3e4 });
   const out = r6.status === 0 ? String(r6.stdout).trim() : "";
   if (!out) throw new SourceError(`${label}: no credentials; set ${t.name} or log in with \`${cli.cmd}\``);
   return { value: out, name: `${cli.cmd} login` };

@@ -1,6 +1,6 @@
 {
   "name": "envsure",
-  "version": "1.2.0",
+  "version": "1.2.1",
   "description": "Fail a PR when code references an env var that is missing in a deployment environment (GitHub, Vercel, Render, AWS, and more). Reads names only.",
   "directories": {
     "test": "test"

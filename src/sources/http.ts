@@ -93,7 +93,11 @@ export function cliToken(
 ): { value: string; name: string } {
   const t = token(opts, ctx, envNames);
   if (t.value) return t as { value: string; name: string };
-  const r = ctx.exec(cli.cmd, cli.args, { encoding: "utf8", shell: process.platform === "win32", timeout: 30_000 });
+  // On Windows gcloud/az are .cmd shims that need a shell; the command line is a fixed constant
+  // (never user input), passed as one string rather than shell + args (Node DEP0190).
+  const r = process.platform === "win32"
+    ? ctx.exec([cli.cmd, ...cli.args].join(" "), undefined, { encoding: "utf8", shell: true, timeout: 30_000 })
+    : ctx.exec(cli.cmd, cli.args, { encoding: "utf8", timeout: 30_000 });
   const out = r.status === 0 ? String(r.stdout).trim() : "";
   if (!out) throw new SourceError(`${label}: no credentials; set ${t.name} or log in with \`${cli.cmd}\``);
   return { value: out, name: `${cli.cmd} login` };
