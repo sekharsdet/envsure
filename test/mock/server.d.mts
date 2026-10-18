@@ -12,6 +12,8 @@ export interface MockServer {
     response?: unknown;
   }[];
   env: Record<string, string>;
+  /** PR comments created through the mock's GitHub comment API (seed or inspect freely). */
+  comments: { id: number; issue: number; body: string; user: { login: string } }[];
   close(): Promise<void>;
 }
 export function startMockServer(port?: number): Promise<MockServer>;

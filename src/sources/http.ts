@@ -21,6 +21,10 @@ export function requireToken(label: string, opts: Options, ctx: SourceContext, d
 
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
+/** Per-request limit, so a stalled API fails the run instead of hanging the job (ENVSURE_HTTP_TIMEOUT_MS). */
+export const timeoutMs = (env: Record<string, string | undefined>) => Number(env.ENVSURE_HTTP_TIMEOUT_MS) > 0 ? Number(env.ENVSURE_HTTP_TIMEOUT_MS) : 30_000;
+const MAX_RESPONSE_BYTES = 50 * 1024 * 1024;
+
 /**
  * Request JSON. Retries 429/5xx twice. Error messages never include response bodies,
  * because some platforms echo values back.
@@ -35,8 +39,16 @@ export async function requestJson(
   for (let attempt = 0; ; attempt++) {
     let res: Response;
     try {
-      res = await ctx.fetch(url, { ...init, headers: { Accept: "application/json", ...(init.headers ?? {}) } });
+      res = await ctx.fetch(url, {
+        ...init,
+        headers: { Accept: "application/json", ...(init.headers ?? {}) },
+        signal: AbortSignal.timeout(timeoutMs(ctx.env)),
+      });
     } catch (err) {
+      if ((err as Error).name === "TimeoutError") {
+        if (attempt < 2) continue;
+        throw new SourceError(`${label}: request to ${new URL(url).host} timed out after ${timeoutMs(ctx.env) / 1000}s`);
+      }
       // A pooled keep-alive socket the server (or a proxy) already closed fails like this; retry reads.
       if ((init.method ?? "GET") === "GET" && attempt < 2) {
         await sleep(200 * (attempt + 1));
@@ -57,9 +69,13 @@ export async function requestJson(
         : "";
       throw new SourceError(`${label}: HTTP ${res.status} for ${path}${hint}`);
     }
+    if (Number(res.headers.get("content-length")) > MAX_RESPONSE_BYTES) {
+      throw new SourceError(`${label}: response from ${path} is larger than ${MAX_RESPONSE_BYTES / 1024 / 1024} MB`);
+    }
     try {
       return await res.json();
-    } catch {
+    } catch (err) {
+      if ((err as Error).name === "TimeoutError") throw new SourceError(`${label}: reading ${path} timed out`);
       throw new SourceError(`${label}: invalid JSON from ${path}`);
     }
   }
@@ -81,4 +97,22 @@ export function cliToken(
   const out = r.status === 0 ? String(r.stdout).trim() : "";
   if (!out) throw new SourceError(`${label}: no credentials; set ${t.name} or log in with \`${cli.cmd}\``);
   return { value: out, name: `${cli.cmd} login` };
+}
+
+/** Most pages any source will request; far beyond real accounts, small enough to never hang a job. */
+export const MAX_PAGES = 1000;
+
+/**
+ * Tracks pagination cursors: returns the next cursor, or throws when a server repeats one or pages
+ * forever, so a buggy or hostile API cannot keep the job running.
+ */
+export function pageGuard(label: string) {
+  const seen = new Set<string>();
+  return (next: string | undefined | null): string | undefined => {
+    if (!next) return undefined;
+    if (seen.has(next)) throw new SourceError(`${label}: the API repeated a pagination cursor; stopping`);
+    if (seen.size >= MAX_PAGES) throw new SourceError(`${label}: stopped after ${MAX_PAGES} pages`);
+    seen.add(next);
+    return next;
+  };
 }

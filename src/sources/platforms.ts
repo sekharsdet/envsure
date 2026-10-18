@@ -1,9 +1,9 @@
 // Hosting platforms reached over plain HTTPS. Every response is reduced to names immediately.
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
-import { apiBase, bearer, requestJson, requireToken } from "./http.js";
+import { apiBase, bearer, pageGuard, requestJson, requireToken } from "./http.js";
 import { flyTomlEnvKeys } from "./names.js";
-import { type SourceDef, SourceError, str } from "./types.js";
+import { insideRepo, type SourceDef, SourceError, str } from "./types.js";
 
 const q = (params: Record<string, string | undefined>) => {
   const s = new URLSearchParams(Object.entries(params).filter((e): e is [string, string] => e[1] !== undefined)).toString();
@@ -73,13 +73,15 @@ export const render: SourceDef = {
     const names = new Set<string>();
     if (service) {
       let cursor: string | undefined;
+      const next = pageGuard(label);
       for (;;) {
         const page = (await requestJson(ctx, label,
           `${base}/v1/services/${encodeURIComponent(service)}/env-vars${q({ limit: "100", cursor })}`, init)) as
           { envVar: { key: string }; cursor: string }[];
         for (const item of page) names.add(item.envVar.key);
         if (page.length < 100) break;
-        cursor = page[page.length - 1].cursor;
+        cursor = next(page[page.length - 1].cursor);
+        if (!cursor) break;
       }
     }
     // Env groups linked to the service are part of its runtime env; found via their `serviceLinks`.
@@ -183,8 +185,9 @@ export const fly: SourceDef = {
     if (config) {
       let text: string;
       try {
-        text = readFileSync(join(ctx.cwd, config), "utf8");
-      } catch {
+        text = readFileSync(insideRepo(ctx.repoCwd ?? ctx.cwd, config, label), "utf8");
+      } catch (err) {
+        if (err instanceof SourceError) throw err;
         throw new SourceError(`${label}: cannot read ${config}`);
       }
       for (const k of flyTomlEnvKeys(text)) names.add(k);

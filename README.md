@@ -50,18 +50,39 @@ check GitHub Environments, which needs the `token` input described under [GitHub
 ## What it checks
 
 - References added in the PR (`git diff base...HEAD`):
-  - JS/TS: `process.env.X`, `process.env["X"]`, `import.meta.env.X`, `Bun.env.X`, `Deno.env.get("X")`
+  - JS/TS: `process.env.X`, `process.env["X"]`, `import.meta.env.X`, `Bun.env.X`, `Deno.env.get("X")`,
+    destructuring (also across lines), `const env = process.env` aliases, t3-env `createEnv` keys
   - Python: `os.environ["X"]`, `os.environ.get("X")`, `os.getenv("X")`
   - Go: `os.Getenv("X")`, `os.LookupEnv("X")`
   - Ruby: `ENV["X"]`, `ENV.fetch("X")`
-  - Workflows: `${{ secrets.X }}`, `${{ vars.X }}`
+  - Java/Kotlin/Scala, C#, PHP, Rust, Elixir, Swift, Prisma `env("X")`, Docker Compose `${X}`
+  - Workflows: `${{ secrets.X }}`, `${{ vars.X }}`, and `if:` conditions; secrets a reusable workflow
+    receives from its caller are skipped
   - Keys in `.env.example` / `.env.sample` / `.env.template`
+  - Commented-out lines and framework built-ins (`import.meta.env.MODE`, `DEV`, …) are skipped
 - Each name must exist as a repository, organization-visible, or environment secret/variable
   in every environment listed in the config.
 - Workflow `secrets.X` / `vars.X` are checked against the job's own `environment:`. A job without
   one only sees repository/organization values, so a secret stored only in `production` is
   reported for it (it would silently resolve to an empty string at runtime).
-- Committed `.env` / `.env.*` files with empty or placeholder values (`sk_test_…`, `your_key_here`, `changeme`).
+- Committed `.env` / `.env.*` files with empty or placeholder values (`sk_test_…`, `your_key_here`, `changeme`),
+  and with **real-looking secrets** (live API keys, high-entropy tokens, passwords in URLs). The value is never printed.
+
+## Security model
+
+- **Names only.** Values are dropped as soon as an API response is parsed. They never appear in output,
+  annotations, comments or error messages. Strings a source returns that look like secret values are discarded.
+- **A pull request cannot change its own check.** On pull requests the config is read from the base commit, and
+  `command`/`file` sources run against a checkout of the base commit, so a PR cannot loosen the check or change
+  code that runs with your platform tokens.
+- **Untrusted input is handled as such.** File names are escaped in annotations, PR comments and terminal output;
+  symlinks and paths outside the repository are not read; scanning is linear-time on hostile files; git
+  config cannot change what is scanned.
+- **Tokens only go to their API.** Hosts are fixed per platform (`ENVSURE_<SOURCE>_API_URL` overrides only from
+  the environment), server-provided links to other hosts are refused, and a token pasted into the config is
+  rejected without being echoed.
+- **A broken API cannot hang your CI.** Every request times out (30s, `ENVSURE_HTTP_TIMEOUT_MS`), retries are
+  bounded, and pagination stops on repeated cursors or after 1000 pages.
 
 Platform-provided names (`PORT`, `NODE_ENV`, `GITHUB_*`, `VERCEL_*`, …) are ignored by default.
 Dynamic lookups such as `process.env[name]` are not detected.
@@ -216,6 +237,8 @@ npm install
 npm run check   # typecheck + tests
 npm run build   # bundles dist/cli.js and dist/action.js
 npm run test:integration   # built CLI + Action against a local mock of every platform (after build)
+npm run test:scenarios     # hostile PRs, git edge cases and false-positive/negative scenarios (after build)
+npm run test:contract      # connectors checked against each platform's official API description (network)
 npm run e2e     # end-to-end against real GitHub (needs `gh auth login` with repo scope) and Fly.io (if `fly` is logged in)
 ```
 

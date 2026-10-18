@@ -199,10 +199,48 @@ function routes(base) {
 
 const flaky = { count: 0 };
 
+/** Comment authors by token, for the PR comment API. */
+const COMMENTERS = { [TOKENS.github]: "envsure-bot", "intruder-token": "intruder" };
+
+/** Stateful GitHub PR comments plus failure modes (hanging API, rate limit, hostile pagination). */
+function extraRoutes(base, comments) {
+  const author = (req) => COMMENTERS[(req.headers.authorization ?? "").replace(/^Bearer /, "")];
+  return [
+    ["GET", /^\/github\/repos\/[^/]+\/[^/]+\/issues\/(\d+)\/comments$/, (q) => !!author(q), (m, url) => {
+      const perPage = Number(url.searchParams.get("per_page") ?? 30);
+      const page = Number(url.searchParams.get("page") ?? 1);
+      const list = comments.filter((c) => c.issue === Number(m[1]));
+      return [200, list.slice((page - 1) * perPage, page * perPage).map(({ issue, ...c }) => c)];
+    }],
+    ["POST", /^\/github\/repos\/[^/]+\/[^/]+\/issues\/(\d+)\/comments$/, (q) => !!author(q), (m, _u, req, body) => {
+      const c = { id: 1000 + comments.length, issue: Number(m[1]), body: JSON.parse(body).body, user: { login: author(req) } };
+      comments.push(c);
+      return [201, c];
+    }],
+    ["PATCH", /^\/github\/repos\/[^/]+\/[^/]+\/issues\/comments\/(\d+)$/, (q) => !!author(q), (m, _u, req, body) => {
+      const c = comments.find((x) => x.id === Number(m[1]));
+      if (!c) return [404, {}];
+      // Like GitHub: only the author (or a maintainer) may edit a comment.
+      if (c.user.login !== author(req)) return [403, { message: "Resource not accessible by integration" }];
+      c.body = JSON.parse(body).body;
+      return [200, c];
+    }],
+    // A repository whose token has hit the rate limit.
+    ["GET", /^\/github\/repos\/ratelimited\/r\/.*$/, () => true, () =>
+      [403, { message: "API rate limit exceeded" }, { "x-ratelimit-remaining": "0", "x-ratelimit-reset": "1893456000" }]],
+    // An API that accepts the connection and never answers.
+    ["GET", /^\/hang\/.*$/, () => true, () => null],
+    // Key Vault that hands back a nextLink on another host (must not receive the token).
+    ["GET", /^\/azure-kv-evil\/secrets$/, () => true, () =>
+      [200, { value: [{ id: `${base}/azure-kv-evil/secrets/first` }], nextLink: "https://attacker.invalid/secrets?api-version=7.4" }]],
+  ];
+}
+
 export function startMockServer(port = 0) {
   let base = "";
   let table = [];
   const requests = [];
+  const comments = [];
   const server = createServer((req, res) => {
     let body = "";
     req.on("data", (c) => (body += c));
@@ -211,16 +249,18 @@ export function startMockServer(port = 0) {
       // Full exchange, so contract tests can check each one against the platform's official spec.
       const exchange = { method: req.method, path: url.pathname, query: [...url.searchParams.keys()], headers: req.headers, requestBody: body };
       requests.push(exchange);
-      const reply = (status, payload) => {
+      const reply = (status, payload, headers = {}) => {
         Object.assign(exchange, { status, response: payload });
-        json(res, status, payload);
+        res.writeHead(status, { "Content-Type": "application/json", ...headers });
+        res.end(JSON.stringify(payload));
       };
       for (const [method, re, auth, handler] of table) {
         const m = re.exec(url.pathname);
         if (!m || method !== req.method) continue;
         if (!auth(req)) return reply(401, { message: "Bad credentials" });
-        const [status, payload] = handler(m, url, req, body);
-        return reply(status, payload);
+        const out = handler(m, url, req, body);
+        if (out === null) return; // never answer
+        return reply(...out);
       }
       reply(404, { message: "Not Found" });
     });
@@ -228,8 +268,14 @@ export function startMockServer(port = 0) {
   return new Promise((resolve) => {
     server.listen(port, "127.0.0.1", () => {
       base = `http://127.0.0.1:${server.address().port}`;
-      table = routes(base);
-      resolve({ base, requests, env: mockEnv(base), close: () => new Promise((r) => server.close(r)) });
+      table = [...extraRoutes(base, comments), ...routes(base)];
+      resolve({
+        base, requests, comments, env: mockEnv(base),
+        close: () => {
+          server.closeAllConnections?.();
+          return new Promise((r) => server.close(r));
+        },
+      });
     });
   });
 }

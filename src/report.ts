@@ -5,6 +5,12 @@ export const COMMENT_MARKER = "<!-- envsure -->";
 
 export const scopeLabel = (scope: string) => (scope === REPO_SCOPE ? "repository" : scope);
 
+/** A file path from the repository, safe to print: no control characters (terminal escapes, newlines). */
+export const safePath = (p: string) => p.replace(/[\x00-\x1f\x7f]/g, "?");
+
+/** A file path for a Markdown code span in a table cell: no backtick or pipe to break out of it. */
+const mdPath = (p: string) => safePath(p).replace(/`/g, "'").replace(/\|/g, "\\|");
+
 export function renderMarkdown(findings: Finding[], dotenvIssues: DotenvIssue[], sourcesChecked: Record<string, string[]> = {}): string {
   const lines = [COMMENT_MARKER, "### EnvSure"];
   if (findings.length === 0 && dotenvIssues.length === 0) {
@@ -14,7 +20,7 @@ export function renderMarkdown(findings: Finding[], dotenvIssues: DotenvIssue[],
   if (findings.length) {
     lines.push("", "| Variable | Referenced at | Missing in | Present in |", "|---|---|---|---|");
     for (const f of findings) {
-      const at = f.refs.slice(0, 3).map((r) => `\`${r.file}:${r.line}\``).join(", ") +
+      const at = f.refs.slice(0, 3).map((r) => `\`${mdPath(r.file)}:${r.line}\``).join(", ") +
         (f.refs.length > 3 ? ` +${f.refs.length - 3} more` : "");
       const missing = f.missingIn.map((e) => (e === REPO_SCOPE ? "repository" : `\`${e}\``)).join(", ");
       const present = f.presentIn.length ? f.presentIn.map((e) => `\`${e}\``).join(", ") : "—";
@@ -23,7 +29,7 @@ export function renderMarkdown(findings: Finding[], dotenvIssues: DotenvIssue[],
   }
   if (dotenvIssues.length) {
     lines.push("", "**Committed env files**", "");
-    for (const i of dotenvIssues) lines.push(`- \`${i.file}:${i.line}\` — ${i.message}`);
+    for (const i of dotenvIssues) lines.push(`- \`${mdPath(i.file)}:${i.line}\` — ${i.message}`);
   }
   if (findings.length && Object.keys(sourcesChecked).length) {
     lines.push("", "<sub>Code references checked against: " +
@@ -39,9 +45,9 @@ export function renderText(findings: Finding[], dotenvIssues: DotenvIssue[], sou
     const r = f.refs[0];
     const missing = f.missingIn.map(scopeLabel).join(", ");
     const present = f.presentIn.length ? `; present in ${f.presentIn.join(", ")}` : "";
-    out.push(`${r.file}:${r.line}  ${f.name} missing in ${missing}${present}`);
+    out.push(`${safePath(r.file)}:${r.line}  ${f.name} missing in ${missing}${present}`);
   }
-  for (const i of dotenvIssues) out.push(`${i.file}:${i.line}  ${i.message}`);
+  for (const i of dotenvIssues) out.push(`${safePath(i.file)}:${i.line}  ${i.message}`);
   if (findings.length) {
     for (const [env, labels] of Object.entries(sourcesChecked)) out.push(`  (${env} checked against: ${labels.join(", ")})`);
   }

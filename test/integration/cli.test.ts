@@ -30,7 +30,7 @@ sources:
     - aws-secretsmanager: { prefix: web/prod/ }
     - gcp-secret-manager: { project: gproj }
     - gcp-cloud-run: { project: gproj, region: us-central1, service: run-svc }
-    - azure-keyvault: { vault: kv }
+    - azure-keyvault: { vault: kv-test }
     - azure-appservice: { subscription: sub, resourceGroup: rg, app: as-app }
     - command: { run: "node -e \\"console.log('CMD_VAR')\\"" }
     - file: { path: deploy/names.txt }

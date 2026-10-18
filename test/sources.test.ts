@@ -139,7 +139,7 @@ describe("clouds", () => {
       .toMatch(/set GOOGLE_OAUTH_ACCESS_TOKEN or CLOUDSDK_AUTH_ACCESS_TOKEN or log in with `gcloud`/);
   });
   it("azure: key vault nextLink + kebab names, app service settings and slots", async () => {
-    expect(await names("azure-keyvault", { vault: "kv" })).toEqual(["AZURE_KV_VAR", "SECOND_PAGE_SECRET"]);
+    expect(await names("azure-keyvault", { vault: "kv-test" })).toEqual(["AZURE_KV_VAR", "SECOND_PAGE_SECRET"]);
     const o = { subscription: "sub", resourceGroup: "rg", app: "as-app" };
     expect(await names("azure-appservice", o)).toEqual(["AS_VAR", "WEBSITE_NODE_DEFAULT_VERSION"]);
     expect(await names("azure-appservice", { ...o, slot: "staging" })).toEqual(["AS_SLOT_VAR"]);

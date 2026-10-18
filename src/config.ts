@@ -1,4 +1,5 @@
 import { parse } from "yaml";
+import { looksLikeSecret, valueNotName } from "./secrets.js";
 import { SOURCE_TYPES, SOURCES } from "./sources/index.js";
 import type { Options } from "./sources/types.js";
 
@@ -73,7 +74,32 @@ function parseSource(entry: unknown, where: string): SourceSpec {
   for (const k of def?.required ?? []) {
     if (opts[k] === undefined || opts[k] === "") fail(`${where}: ${type} needs "${k}"`);
   }
+  for (const [k, v] of Object.entries(opts)) {
+    const ok = ["string", "number", "boolean"].includes(typeof v) || (Array.isArray(v) && v.every((x) => typeof x === "string"));
+    if (!ok) fail(`${where}: option "${k}" for ${type} must be a string, number, boolean or list of strings`);
+  }
+  // A token pasted here instead of a variable name would otherwise be echoed in "set <tokenEnv>".
+  // Real tokens (ghp_..., sk_live_...) can also look like identifiers, so known formats are refused too.
+  const tokenEnv = opts.tokenEnv;
+  if (tokenEnv !== undefined &&
+      !(typeof tokenEnv === "string" && /^[A-Za-z_][A-Za-z0-9_]{0,63}$/.test(tokenEnv) && !valueNotName(tokenEnv) && !looksLikeSecret(tokenEnv))) {
+    fail(`${where}: tokenEnv must be the name of an environment variable (like VERCEL_TOKEN), not a token`);
+  }
   return { type, options: opts };
+}
+
+const TOP_LEVEL_KEYS = ["environments", "ignore", "unusedIgnore", "excludePaths", "sources"];
+
+/** Edit distance, for "did you mean" suggestions. */
+function distance(a: string, b: string): number {
+  const d = Array.from({ length: a.length + 1 }, (_, i) => [i, ...Array(b.length).fill(0)]);
+  for (let j = 1; j <= b.length; j++) d[0][j] = j;
+  for (let i = 1; i <= a.length; i++) {
+    for (let j = 1; j <= b.length; j++) {
+      d[i][j] = Math.min(d[i - 1][j] + 1, d[i][j - 1] + 1, d[i - 1][j - 1] + (a[i - 1] === b[j - 1] ? 0 : 1));
+    }
+  }
+  return d[a.length][b.length];
 }
 
 export function parseConfig(text: string | undefined): Config {
@@ -85,7 +111,16 @@ export function parseConfig(text: string | undefined): Config {
     return fail(`invalid YAML (${(err as Error).message.split("\n")[0]})`);
   }
   if (typeof raw !== "object" || Array.isArray(raw)) fail("top level must be a mapping");
+  // A typo would otherwise silently fall back to defaults and weaken the check.
+  for (const key of Object.keys(raw)) {
+    if (TOP_LEVEL_KEYS.includes(key)) continue;
+    const best = TOP_LEVEL_KEYS.map((k) => [k, distance(key.toLowerCase(), k.toLowerCase())] as const).sort((a, b) => a[1] - b[1])[0];
+    fail(`unknown key "${key}"${best[1] <= 3 ? `; did you mean "${best[0]}"?` : ` (known: ${TOP_LEVEL_KEYS.join(", ")})`}`);
+  }
   const environments = list(raw.environments, "environments") ?? DEFAULT_CONFIG.environments;
+  const dup = environments.find((e, i) => environments.indexOf(e) !== i);
+  if (dup) fail(`"environments" lists "${dup}" more than once (duplicate)`);
+  if (environments.some((e) => e.trim() === "" || e === "(repository)")) fail(`"environments" has an empty or reserved name`);
   const sources: Record<string, SourceSpec[]> = {};
   if (raw.sources !== undefined && raw.sources !== null) {
     if (typeof raw.sources !== "object" || Array.isArray(raw.sources)) fail(`"sources" must map environment names to lists`);

@@ -21,27 +21,51 @@ export class GitHubClient {
   ) {}
 
   private async get(path: string): Promise<any> {
-    const res = await this.fetchImpl(`${this.apiUrl}${path}`, {
-      headers: {
-        Authorization: `Bearer ${this.token}`,
-        Accept: "application/vnd.github+json",
-        "X-GitHub-Api-Version": "2022-11-28",
-      },
-    });
-    if (!res.ok) throw new Error(`GitHub API ${res.status} for ${path}${githubHint(res.status, path)}`);
-    return res.json();
+    const timeout = Number(process.env.ENVSURE_HTTP_TIMEOUT_MS) > 0 ? Number(process.env.ENVSURE_HTTP_TIMEOUT_MS) : 30_000;
+    for (let attempt = 0; ; attempt++) {
+      let res: Response;
+      try {
+        res = await this.fetchImpl(`${this.apiUrl}${path}`, {
+          headers: {
+            Authorization: `Bearer ${this.token}`,
+            Accept: "application/vnd.github+json",
+            "X-GitHub-Api-Version": "2022-11-28",
+          },
+          signal: AbortSignal.timeout(timeout),
+        });
+      } catch (err) {
+        if (attempt < 2) continue; // timeouts and dropped keep-alive sockets
+        const e = err as Error & { cause?: { code?: string } };
+        throw new Error(`GitHub API request for ${path} ${e.name === "TimeoutError" ? `timed out after ${timeout / 1000}s` : `failed (${e.cause?.code ?? e.message})`}`);
+      }
+      const limited = res.headers.get("x-ratelimit-remaining") === "0" && (res.status === 403 || res.status === 429);
+      if (limited) {
+        const reset = Number(res.headers.get("x-ratelimit-reset"));
+        const when = reset ? ` until ${new Date(reset * 1000).toISOString()}` : "";
+        throw new Error(`GitHub API rate limit exceeded for this token${when} (${path})`);
+      }
+      if ((res.status >= 500 || res.status === 429) && attempt < 2) {
+        await new Promise((r) => setTimeout(r, 500 * (attempt + 1)));
+        continue;
+      }
+      if (!res.ok) throw new Error(`GitHub API ${res.status} for ${path}${githubHint(res.status, path)}`);
+      return res.json();
+    }
   }
 
-  /** Collect `name` fields from a paginated list endpoint. */
+  /** Collect `name` fields from a paginated list endpoint (at most 1000 pages). */
   private async names(path: string, key: string, perPage: number): Promise<string[]> {
     const out: string[] = [];
-    for (let page = 1; ; page++) {
+    for (let page = 1; page <= 1000; page++) {
       const sep = path.includes("?") ? "&" : "?";
       const body = await this.get(`${path}${sep}per_page=${perPage}&page=${page}`);
       const items: { name: string }[] = body[key] ?? [];
+      // A server that ignores `page` would otherwise return the same names forever.
+      if (page > 1 && items.length && out.includes(items[0].name)) return out;
       out.push(...items.map((i) => i.name));
       if (items.length < perPage || out.length >= (body.total_count ?? Infinity)) return out;
     }
+    return out;
   }
 
   async listEnvironments(owner: string, repo: string): Promise<string[]> {

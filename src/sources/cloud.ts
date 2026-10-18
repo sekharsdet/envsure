@@ -3,7 +3,7 @@
 import { DescribeParametersCommand, SSMClient } from "@aws-sdk/client-ssm";
 import { ListSecretsCommand, SecretsManagerClient } from "@aws-sdk/client-secrets-manager";
 import { fromIni } from "@aws-sdk/credential-providers";
-import { apiBase, bearer, cliToken, requestJson } from "./http.js";
+import { apiBase, bearer, cliToken, pageGuard, requestJson, timeoutMs } from "./http.js";
 import { fromKebab, stripPath } from "./names.js";
 import { type Options, type SourceContext, type SourceDef, SourceError, str } from "./types.js";
 
@@ -17,10 +17,13 @@ function awsConfig(type: string, o: Options, ctx: SourceContext) {
     : accessKeyId && secretAccessKey ? { accessKeyId, secretAccessKey, sessionToken }
     : undefined;
   const endpoint = ctx.env[`ENVSURE_${type.toUpperCase().replace(/-/g, "_")}_API_URL`];
-  return { region, maxAttempts: 3, ...(credentials ? { credentials } : {}), ...(endpoint ? { endpoint } : {}) };
+  // Same per-request limit as every other source, so a stalled endpoint cannot hang the job.
+  const requestHandler = { connectionTimeout: 10_000, requestTimeout: timeoutMs(ctx.env) };
+  return { region, maxAttempts: 3, requestHandler, ...(credentials ? { credentials } : {}), ...(endpoint ? { endpoint } : {}) };
 }
 
 function awsError(label: string, err: unknown): SourceError {
+  if (err instanceof SourceError) return err;
   const e = err as { name?: string; message?: string; $metadata?: { httpStatusCode?: number } };
   if (e.name === "CredentialsProviderError") {
     return new SourceError(`${label}: no AWS credentials (env vars, profile, SSO or OIDC role)`);
@@ -39,6 +42,7 @@ export const awsSsm: SourceDef = {
     const client = new SSMClient(awsConfig("aws-ssm", o, ctx));
     const names = new Set<string>();
     let NextToken: string | undefined;
+    const next = pageGuard(label);
     try {
       do {
         const res = await client.send(new DescribeParametersCommand({
@@ -47,7 +51,7 @@ export const awsSsm: SourceDef = {
           NextToken,
         }));
         for (const p of res.Parameters ?? []) if (p.Name) names.add(stripPath(p.Name, path));
-        NextToken = res.NextToken;
+        NextToken = next(res.NextToken);
       } while (NextToken);
     } catch (err) {
       throw awsError(label, err);
@@ -68,6 +72,7 @@ export const awsSecretsManager: SourceDef = {
     const client = new SecretsManagerClient(awsConfig("aws-secretsmanager", o, ctx));
     const names = new Set<string>();
     let NextToken: string | undefined;
+    const next = pageGuard(label);
     try {
       do {
         const res = await client.send(new ListSecretsCommand({
@@ -77,7 +82,7 @@ export const awsSecretsManager: SourceDef = {
         }));
         // The name filter is a prefix match on words; re-check the exact prefix locally.
         for (const s of res.SecretList ?? []) if (s.Name?.startsWith(prefix)) names.add(stripPath(s.Name, prefix));
-        NextToken = res.NextToken;
+        NextToken = next(res.NextToken);
       } while (NextToken);
     } catch (err) {
       throw awsError(label, err);
@@ -103,6 +108,7 @@ export const gcpSecretManager: SourceDef = {
     const base = apiBase("gcp-secret-manager", "https://secretmanager.googleapis.com", ctx);
     const names = new Set<string>();
     let pageToken: string | undefined;
+    const next = pageGuard(label);
     do {
       const url = `${base}/v1/projects/${encodeURIComponent(str(o, "project")!)}/secrets?pageSize=250` +
         (pageToken ? `&pageToken=${encodeURIComponent(pageToken)}` : "");
@@ -111,7 +117,7 @@ export const gcpSecretManager: SourceDef = {
         const short = stripPath(s.name);
         if (short.startsWith(prefix)) names.add(short.slice(prefix.length));
       }
-      pageToken = body.nextPageToken || undefined;
+      pageToken = next(body.nextPageToken);
     } while (pageToken);
     return names;
   },
@@ -146,15 +152,24 @@ export const azureKeyVault: SourceDef = {
   label: (o) => `azure-keyvault ${str(o, "vault")}`,
   async fetchNames(o, ctx) {
     const label = this.label(o);
+    const vault = str(o, "vault")!;
+    // The vault name becomes part of the host the token is sent to.
+    if (!/^[A-Za-z][A-Za-z0-9-]{1,22}[A-Za-z0-9]$/.test(vault)) {
+      throw new SourceError(`${label}: vault must be a Key Vault name (3-24 letters, digits and dashes)`);
+    }
     const t = azureToken(label, o, ctx, "AZURE_KEYVAULT_TOKEN", "https://vault.azure.net");
-    const base = apiBase("azure-keyvault", `https://${str(o, "vault")}.vault.azure.net`, ctx);
+    const base = apiBase("azure-keyvault", `https://${vault}.vault.azure.net`, ctx);
+    const origin = new URL(base).origin;
     const names = new Set<string>();
     let url: string | undefined = `${base}/secrets?api-version=7.4&maxresults=25`;
-    while (url) {
+    for (let page = 0; url; page++) {
+      if (page >= 1000) throw new SourceError(`${label}: stopped after 1000 pages`);
       const body = await requestJson(ctx, label, url, { headers: bearer(t.value), tokenName: t.name });
       // Key Vault names cannot contain "_": `db-url` is the convention for DB_URL.
       for (const s of (body.value ?? []) as { id: string }[]) names.add(fromKebab(stripPath(s.id)));
       url = body.nextLink || undefined;
+      // The bearer token must never follow a server-provided link to another host.
+      if (url && new URL(url).origin !== origin) throw new SourceError(`${label}: nextLink points to a different host; refusing to follow`);
     }
     return names;
   },

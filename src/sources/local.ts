@@ -1,8 +1,7 @@
 // Escape hatches for anything without a built-in connector (Kubernetes, Vault, 1Password, ...).
 import { readFileSync } from "node:fs";
-import { join } from "node:path";
 import { parseNames } from "./names.js";
-import { type SourceDef, SourceError, str } from "./types.js";
+import { insideRepo, type SourceDef, SourceError, str } from "./types.js";
 
 export const command: SourceDef = {
   required: ["run"],
@@ -31,8 +30,9 @@ export const file: SourceDef = {
   optional: [],
   label: (o) => `file ${str(o, "path")}`,
   async fetchNames(o, ctx) {
+    const path = insideRepo(ctx.cwd, str(o, "path")!, this.label(o));
     try {
-      return parseNames(readFileSync(join(ctx.cwd, str(o, "path")!), "utf8"));
+      return parseNames(readFileSync(path, "utf8"));
     } catch {
       throw new SourceError(`${this.label(o)}: cannot read file`);
     }

@@ -37,6 +37,8 @@ jobs:
         run: git diff --exit-code -- dist || (echo "::error::Run npm run build and commit dist/" && exit 1)
       - name: integration tests (built CLI and Action against every platform mock)
         run: npm run test:integration
+      - name: scenarios (hostile PRs, git edge cases, accuracy)
+        run: npm run test:scenarios
       - name: self-scan (offline)
         run: node dist/cli.js --offline
 

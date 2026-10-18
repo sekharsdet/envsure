@@ -1,6 +1,6 @@
 {
   "name": "envsure",
-  "version": "1.1.0",
+  "version": "1.2.0",
   "description": "Fail a PR when code references an env var that is missing in a deployment environment (GitHub, Vercel, Render, AWS, and more). Reads names only.",
   "directories": {
     "test": "test"
@@ -8,28 +8,30 @@
   "scripts": {
     "build": "esbuild src/cli.ts src/action.ts --bundle --platform=node --target=node22 --format=esm --outdir=dist --banner:js=\"import{createRequire}from\\\"module\\\";const require=createRequire(import.meta.url);\"",
     "typecheck": "tsc",
-    "test": "vitest run --exclude \"test/{integration,contract,emulators,live}/**\"",
+    "test": "vitest run --exclude \"test/{integration,contract,emulators,live,scenarios}/**\"",
     "test:integration": "vitest run test/integration",
     "test:contract": "vitest run test/contract",
     "test:emulators": "vitest run test/emulators",
     "test:live": "vitest run test/live",
     "check": "npm run typecheck && npm test",
-    "e2e": "node scripts/e2e.mjs"
+    "e2e": "node scripts/e2e.mjs",
+    "test:scenarios": "vitest run test/scenarios"
   },
   "license": "MIT",
   "devDependencies": {
     "@types/node": "^22.9.0",
     "ajv": "^8.20.0",
-    "esbuild": "^0.24.0",
+    "esbuild": "^0.28.2",
     "graphql": "^17.0.2",
     "typescript": "^5.6.3",
-    "vitest": "^2.1.4"
+    "vite": "^8.3.1",
+    "vitest": "^5.0.3"
   },
   "dependencies": {
     "@aws-sdk/client-secrets-manager": "^3.1152.0",
     "@aws-sdk/client-ssm": "^3.1152.0",
     "@aws-sdk/credential-providers": "^3.1152.0",
-    "yaml": "^2.6.0"
+    "yaml": "^2.9.1"
   },
   "private": true,
   "type": "module",

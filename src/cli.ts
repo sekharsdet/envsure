@@ -1,5 +1,5 @@
 import { parseArgs } from "node:util";
-import { renderMarkdown, renderText, renderUnusedMarkdown, renderUnusedText } from "./report.js";
+import { renderMarkdown, renderText, renderUnusedMarkdown, renderUnusedText, safePath } from "./report.js";
 import { parseRepo, run } from "./run.js";
 
 const USAGE = `Usage: envsure [options]
@@ -64,7 +64,7 @@ async function main(): Promise<number> {
   if (values.format === "json") {
     console.log(JSON.stringify(values.offline ? result.refs : result, null, 2));
   } else if (values.offline) {
-    for (const r of result.refs) console.log(`${r.file}:${r.line}  ${r.name}  (${r.kind})`);
+    for (const r of result.refs) console.log(`${safePath(r.file)}:${r.line}  ${r.name}  (${r.kind})`);
     const issues = renderText([], result.dotenvIssues);
     if (issues) console.log(issues);
   } else if (values.format === "markdown") {
